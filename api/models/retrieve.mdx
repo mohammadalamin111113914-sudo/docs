@@ -1,0 +1,123 @@
+---
+title: 'Retrieve Model'
+description: 'Get detailed information about a specific model'
+---
+
+## Overview
+
+Retrieves detailed information about a specific model, including basic information such as the owner and permissioning details.
+
+## Method
+
+```python
+client.models.retrieve(model="gpt-4-turbo")
+```
+
+## Parameters
+
+<ParamField path="model" type="string" required>
+  The model ID to retrieve. This can be any model identifier from the models list, including:
+  - Base models (e.g., `gpt-4-turbo`, `gpt-3.5-turbo`)
+  - Fine-tuned models (e.g., `ft:gpt-3.5-turbo:org-id:model-name:id`)
+</ParamField>
+
+<ParamField path="extra_headers" type="dict">
+  Send extra headers with the request
+</ParamField>
+
+<ParamField path="extra_query" type="dict">
+  Add additional query parameters to the request
+</ParamField>
+
+<ParamField path="timeout" type="float">
+  Override the client-level default timeout for this request, in seconds
+</ParamField>
+
+## Response
+
+Returns a `Model` object.
+
+<ResponseField name="id" type="string">
+  The model identifier that can be referenced in API endpoints
+</ResponseField>
+
+<ResponseField name="created" type="integer">
+  Unix timestamp (in seconds) when the model was created
+</ResponseField>
+
+<ResponseField name="object" type="string">
+  The object type, always "model"
+</ResponseField>
+
+<ResponseField name="owned_by" type="string">
+  The organization that owns the model
+</ResponseField>
+
+## Examples
+
+### Retrieve a Base Model
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+model = client.models.retrieve("gpt-4-turbo")
+
+print(f"Model ID: {model.id}")
+print(f"Owner: {model.owned_by}")
+print(f"Created: {model.created}")
+```
+
+### Retrieve a Fine-Tuned Model
+
+```python
+# Retrieve details about your fine-tuned model
+model = client.models.retrieve(
+    "ft:gpt-3.5-turbo:my-org:custom-model:id"
+)
+
+print(f"Fine-tuned model: {model.id}")
+print(f"Owned by: {model.owned_by}")
+```
+
+### Check Model Ownership
+
+```python
+def check_model_ownership(model_id: str) -> str:
+    try:
+        model = client.models.retrieve(model_id)
+        return model.owned_by
+    except Exception as e:
+        return f"Error: {e}"
+
+owner = check_model_ownership("gpt-4")
+print(f"Model owned by: {owner}")
+```
+
+### Error Handling
+
+```python
+try:
+    model = client.models.retrieve("non-existent-model")
+except Exception as e:
+    print(f"Model not found: {e}")
+```
+
+## Async Usage
+
+```python
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+
+model = await client.models.retrieve("gpt-4-turbo")
+print(model.id)
+```
+
+## Notes
+
+- Returns a 404 error if the model doesn't exist or you don't have access to it
+- The model ID must be non-empty
+- This endpoint is useful for verifying model details before use
+- For fine-tuned models, you can only retrieve models owned by your organization

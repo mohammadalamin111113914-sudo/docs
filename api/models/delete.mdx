@@ -1,0 +1,154 @@
+---
+title: 'Delete Model'
+description: 'Delete a fine-tuned model from your organization'
+---
+
+## Overview
+
+Deletes a fine-tuned model. You must have the Owner role in your organization to delete a model.
+
+<Warning>
+  This action is permanent and cannot be undone. The model will be immediately removed and can no longer be used for inference.
+</Warning>
+
+## Method
+
+```python
+client.models.delete(model="ft:gpt-3.5-turbo:org-id:model-name:id")
+```
+
+## Parameters
+
+<ParamField path="model" type="string" required>
+  The ID of the fine-tuned model to delete. Must be a model you own.
+  
+  Only fine-tuned models can be deleted. Base OpenAI models (like `gpt-4` or `gpt-3.5-turbo`) cannot be deleted.
+</ParamField>
+
+<ParamField path="extra_headers" type="dict">
+  Send extra headers with the request
+</ParamField>
+
+<ParamField path="extra_query" type="dict">
+  Add additional query parameters to the request
+</ParamField>
+
+<ParamField path="timeout" type="float">
+  Override the client-level default timeout for this request, in seconds
+</ParamField>
+
+## Response
+
+Returns a `ModelDeleted` object confirming the deletion.
+
+<ResponseField name="id" type="string">
+  The ID of the deleted model
+</ResponseField>
+
+<ResponseField name="deleted" type="boolean">
+  Confirmation that the model was deleted (always `true` on success)
+</ResponseField>
+
+<ResponseField name="object" type="string">
+  The object type (typically "model")
+</ResponseField>
+
+## Examples
+
+### Delete a Fine-Tuned Model
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+# Delete a fine-tuned model
+response = client.models.delete(
+    model="ft:gpt-3.5-turbo:my-org:custom-model:id"
+)
+
+if response.deleted:
+    print(f"Successfully deleted model: {response.id}")
+```
+
+### Safe Deletion with Confirmation
+
+```python
+def delete_model_safely(model_id: str):
+    try:
+        # First, verify the model exists
+        model = client.models.retrieve(model_id)
+        
+        # Confirm it's a fine-tuned model
+        if not model_id.startswith('ft:'):
+            print("Can only delete fine-tuned models")
+            return False
+        
+        # Delete the model
+        response = client.models.delete(model_id)
+        return response.deleted
+    except Exception as e:
+        print(f"Error deleting model: {e}")
+        return False
+
+deleted = delete_model_safely("ft:gpt-3.5-turbo:org:model:id")
+if deleted:
+    print("Model deleted successfully")
+```
+
+### List and Delete Old Models
+
+```python
+from datetime import datetime, timedelta
+
+# Get all models
+models = client.models.list()
+
+# Find fine-tuned models older than 90 days
+threshold = datetime.now().timestamp() - (90 * 24 * 60 * 60)
+
+for model in models:
+    if model.id.startswith('ft:') and model.created < threshold:
+        print(f"Deleting old model: {model.id}")
+        response = client.models.delete(model.id)
+        print(f"Deleted: {response.deleted}")
+```
+
+### Error Handling
+
+```python
+try:
+    response = client.models.delete("ft:model-id")
+    print(f"Deleted: {response.id}")
+except Exception as e:
+    if "permission" in str(e).lower():
+        print("You need Owner role to delete models")
+    elif "not found" in str(e).lower():
+        print("Model does not exist")
+    else:
+        print(f"Error: {e}")
+```
+
+## Async Usage
+
+```python
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+
+response = await client.models.delete(
+    model="ft:gpt-3.5-turbo:org:model:id"
+)
+print(f"Deleted: {response.deleted}")
+```
+
+## Notes
+
+- **Requires Owner role**: You must have the Owner role in your organization to delete models
+- **Fine-tuned models only**: Base OpenAI models cannot be deleted
+- **Permanent action**: Deletion is immediate and cannot be undone
+- **Active usage**: Ensure the model is not actively being used in production before deletion
+- Returns an error if:
+  - The model doesn't exist
+  - You don't have permission to delete the model
+  - The model is not a fine-tuned model

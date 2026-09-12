@@ -1,0 +1,304 @@
+---
+title: 'Transcriptions'
+description: 'Transcribe audio into the input language using Whisper and GPT-4 models'
+---
+
+## Create transcription
+
+Transcribes audio into the input language.
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+audio_file = open("speech.mp3", "rb")
+transcription = client.audio.transcriptions.create(
+    model="whisper-1",
+    file=audio_file
+)
+
+print(transcription.text)
+```
+
+### Parameters
+
+<ParamField path="file" type="file" required>
+  The audio file object (not file name) to transcribe, in one of these formats: `flac`, `mp3`, `mp4`, `mpeg`, `mpga`, `m4a`, `ogg`, `wav`, or `webm`.
+</ParamField>
+
+<ParamField path="model" type="string" required>
+  ID of the model to use. Available models:
+  
+  - `whisper-1` - Powered by OpenAI's open source Whisper V2 model
+  - `gpt-4o-transcribe` - GPT-4 optimized transcription
+  - `gpt-4o-mini-transcribe` - GPT-4 mini transcription
+  - `gpt-4o-mini-transcribe-2025-12-15` - Latest GPT-4 mini transcription
+  - `gpt-4o-transcribe-diarize` - GPT-4 transcription with speaker diarization
+</ParamField>
+
+<ParamField path="language" type="string">
+  The language of the input audio. Supplying the input language in [ISO-639-1](https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes) format (e.g. `en`) will improve accuracy and latency.
+</ParamField>
+
+<ParamField path="prompt" type="string">
+  An optional text to guide the model's style or continue a previous audio segment. The [prompt](https://platform.openai.com/docs/guides/speech-to-text#prompting) should match the audio language. Not supported when using `gpt-4o-transcribe-diarize`.
+</ParamField>
+
+<ParamField path="response_format" type="string" default="json">
+  The format of the output. Options: `json`, `text`, `srt`, `verbose_json`, `vtt`, or `diarized_json`.
+  
+  - For `gpt-4o-transcribe` and `gpt-4o-mini-transcribe`, only `json` is supported
+  - For `gpt-4o-transcribe-diarize`, supported formats are `json`, `text`, and `diarized_json` (required for speaker annotations)
+</ParamField>
+
+<ParamField path="temperature" type="float" default="0">
+  The sampling temperature, between 0 and 1. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic. If set to 0, the model will use log probability to automatically increase the temperature until certain thresholds are hit.
+</ParamField>
+
+<ParamField path="timestamp_granularities" type="array">
+  The timestamp granularities to populate for this transcription. `response_format` must be set to `verbose_json` to use timestamp granularities. Options: `word` or `segment`.
+  
+  Note: There is no additional latency for segment timestamps, but generating word timestamps incurs additional latency. Not available for `gpt-4o-transcribe-diarize`.
+</ParamField>
+
+<ParamField path="stream" type="boolean" default="false">
+  If set to true, the model response data will be streamed to the client as it is generated using server-sent events. Not supported for the `whisper-1` model.
+</ParamField>
+
+<ParamField path="chunking_strategy" type="object">
+  Controls how the audio is cut into chunks. When set to `"auto"`, the server first normalizes loudness and then uses voice activity detection (VAD) to choose boundaries. Required when using `gpt-4o-transcribe-diarize` for inputs longer than 30 seconds.
+</ParamField>
+
+<ParamField path="include" type="array">
+  Additional information to include in the transcription response. `logprobs` will return the log probabilities of the tokens in the response. Only works with `response_format` set to `json` and only with the models `gpt-4o-transcribe`, `gpt-4o-mini-transcribe`, and `gpt-4o-mini-transcribe-2025-12-15`. Not supported when using `gpt-4o-transcribe-diarize`.
+</ParamField>
+
+<ParamField path="known_speaker_names" type="array">
+  Optional list of speaker names that correspond to the audio samples provided in `known_speaker_references[]`. Each entry should be a short identifier (e.g. `customer` or `agent`). Up to 4 speakers are supported.
+</ParamField>
+
+<ParamField path="known_speaker_references" type="array">
+  Optional list of audio samples (as data URLs) that contain known speaker references matching `known_speaker_names[]`. Each sample must be between 2 and 10 seconds, and can use any of the same input audio formats supported by `file`.
+</ParamField>
+
+### Response
+
+<ResponseField name="text" type="string">
+  The transcribed text.
+</ResponseField>
+
+<ResponseField name="logprobs" type="array">
+  The log probabilities of the tokens in the transcription. Only returned with certain models when `logprobs` is added to the `include` array.
+</ResponseField>
+
+<ResponseField name="usage" type="object">
+  Token usage statistics for the request.
+</ResponseField>
+
+## Examples
+
+### Basic transcription
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+audio_file = open("audio.mp3", "rb")
+transcription = client.audio.transcriptions.create(
+    model="whisper-1",
+    file=audio_file
+)
+
+print(transcription.text)
+```
+
+### Transcribe with language hint
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+audio_file = open("french_audio.mp3", "rb")
+transcription = client.audio.transcriptions.create(
+    model="whisper-1",
+    file=audio_file,
+    language="fr"  # French audio
+)
+
+print(transcription.text)
+```
+
+### Get SRT subtitles
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+audio_file = open("video_audio.mp3", "rb")
+transcription = client.audio.transcriptions.create(
+    model="whisper-1",
+    file=audio_file,
+    response_format="srt"
+)
+
+# Save SRT file
+with open("subtitles.srt", "w") as f:
+    f.write(transcription)
+```
+
+### Transcribe with timestamps
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+audio_file = open("audio.mp3", "rb")
+transcription = client.audio.transcriptions.create(
+    model="whisper-1",
+    file=audio_file,
+    response_format="verbose_json",
+    timestamp_granularities=["word", "segment"]
+)
+
+# Access segments with timestamps
+for segment in transcription.segments:
+    print(f"[{segment['start']:.2f}s - {segment['end']:.2f}s] {segment['text']}")
+```
+
+### Speaker diarization
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+audio_file = open("conversation.mp3", "rb")
+transcription = client.audio.transcriptions.create(
+    model="gpt-4o-transcribe-diarize",
+    file=audio_file,
+    response_format="diarized_json",
+    chunking_strategy="auto"
+)
+
+# Access speaker-segmented transcription
+for segment in transcription.segments:
+    speaker = segment.get('speaker', 'Unknown')
+    print(f"{speaker}: {segment['text']}")
+```
+
+### Streaming transcription
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+audio_file = open("audio.mp3", "rb")
+
+# Stream transcription events
+stream = client.audio.transcriptions.create(
+    model="gpt-4o-mini-transcribe",
+    file=audio_file,
+    stream=True
+)
+
+for event in stream:
+    if event.type == "transcription.text.delta":
+        print(event.delta, end="", flush=True)
+```
+
+### Transcribe with prompt for context
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+audio_file = open("meeting.mp3", "rb")
+transcription = client.audio.transcriptions.create(
+    model="whisper-1",
+    file=audio_file,
+    prompt="This is a quarterly business review meeting discussing Q4 revenue targets."
+)
+
+print(transcription.text)
+```
+
+### Get log probabilities
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+audio_file = open("audio.mp3", "rb")
+transcription = client.audio.transcriptions.create(
+    model="gpt-4o-mini-transcribe",
+    file=audio_file,
+    response_format="json",
+    include=["logprobs"]
+)
+
+print(f"Transcription: {transcription.text}")
+
+# Check confidence scores
+if transcription.logprobs:
+    for logprob in transcription.logprobs:
+        print(f"Token: {logprob.token}, Confidence: {logprob.logprob}")
+```
+
+## Async usage
+
+```python
+import asyncio
+from openai import AsyncOpenAI
+
+async def transcribe_audio():
+    client = AsyncOpenAI()
+    
+    audio_file = open("audio.mp3", "rb")
+    transcription = await client.audio.transcriptions.create(
+        model="whisper-1",
+        file=audio_file
+    )
+    
+    print(transcription.text)
+
+asyncio.run(transcribe_audio())
+```
+
+## Supported audio formats
+
+The transcription endpoint supports the following audio formats:
+
+- `flac` - Free Lossless Audio Codec
+- `mp3` - MPEG audio format
+- `mp4` - MPEG-4 Part 14
+- `mpeg` - MPEG audio
+- `mpga` - MPEG audio
+- `m4a` - MPEG-4 audio
+- `ogg` - Ogg Vorbis
+- `wav` - Waveform audio
+- `webm` - WebM audio
+
+## File uploads
+
+Files are uploaded using multipart/form-data. The file object should be opened in binary mode:
+
+```python
+# Correct way to open file
+audio_file = open("path/to/file.mp3", "rb")
+
+# Or using pathlib
+from pathlib import Path
+audio_file = Path("path/to/file.mp3").open("rb")
+```
+
+<Info>
+  For more information on prompting and best practices, see the [Speech to text guide](https://platform.openai.com/docs/guides/speech-to-text).
+</Info>

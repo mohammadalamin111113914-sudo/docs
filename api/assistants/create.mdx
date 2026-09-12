@@ -1,0 +1,127 @@
+---
+title: "Create Assistant"
+api: "POST https://api.openai.com/v1/assistants"
+---
+
+<Warning>
+  The Assistants API is deprecated in favor of the Responses API.
+</Warning>
+
+Create an assistant with a model and instructions.
+
+## Request Body
+
+<ParamField body="model" type="string" required>
+  ID of the model to use. You can use the [List models](/api-reference/models/list) API to see all of your available models, or see the [Model overview](https://platform.openai.com/docs/models) for descriptions of them.
+</ParamField>
+
+<ParamField body="name" type="string">
+  The name of the assistant. The maximum length is 256 characters.
+</ParamField>
+
+<ParamField body="description" type="string">
+  The description of the assistant. The maximum length is 512 characters.
+</ParamField>
+
+<ParamField body="instructions" type="string">
+  The system instructions that the assistant uses. The maximum length is 256,000 characters.
+</ParamField>
+
+<ParamField body="tools" type="array">
+  A list of tools enabled on the assistant. There can be a maximum of 128 tools per assistant. Tools can be of types:
+  - `code_interpreter`
+  - `file_search`
+  - `function`
+</ParamField>
+
+<ParamField body="tool_resources" type="object">
+  A set of resources that are used by the assistant's tools. The resources are specific to the type of tool. For example, the `code_interpreter` tool requires a list of file IDs, while the `file_search` tool requires a list of vector store IDs.
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Set of 16 key-value pairs that can be attached to an object. This can be useful for storing additional information about the object in a structured format.
+  
+  Keys are strings with a maximum length of 64 characters. Values are strings with a maximum length of 512 characters.
+</ParamField>
+
+<ParamField body="temperature" type="number">
+  What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.
+</ParamField>
+
+<ParamField body="top_p" type="number">
+  An alternative to sampling with temperature, called nucleus sampling, where the model considers the results of the tokens with top_p probability mass. So 0.1 means only the tokens comprising the top 10% probability mass are considered.
+  
+  We generally recommend altering this or temperature but not both.
+</ParamField>
+
+<ParamField body="response_format" type="object">
+  Specifies the format that the model must output. Setting to `{ "type": "json_schema", "json_schema": {...} }` enables Structured Outputs which ensures the model will match your supplied JSON schema.
+  
+  Setting to `{ "type": "json_object" }` enables JSON mode, which ensures the message the model generates is valid JSON.
+</ParamField>
+
+## Response
+
+Returns an `Assistant` object.
+
+<RequestExample>
+```python Python
+from openai import OpenAI
+client = OpenAI()
+
+assistant = client.beta.assistants.create(
+    name="Math Tutor",
+    instructions="You are a personal math tutor. Help students with their homework.",
+    model="gpt-4o",
+    tools=[{"type": "code_interpreter"}]
+)
+```
+
+```javascript Node.js
+import OpenAI from "openai";
+const openai = new OpenAI();
+
+const assistant = await openai.beta.assistants.create({
+  name: "Math Tutor",
+  instructions: "You are a personal math tutor. Help students with their homework.",
+  model: "gpt-4o",
+  tools: [{ type: "code_interpreter" }]
+});
+```
+
+```bash cURL
+curl https://api.openai.com/v1/assistants \\
+  -H "Authorization: Bearer $OPENAI_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "OpenAI-Beta: assistants=v2" \\
+  -d '{
+    "name": "Math Tutor",
+    "instructions": "You are a personal math tutor.",
+    "model": "gpt-4o",
+    "tools": [{"type": "code_interpreter"}]
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "id": "asst_abc123",
+  "object": "assistant",
+  "created_at": 1698984975,
+  "name": "Math Tutor",
+  "description": null,
+  "model": "gpt-4o",
+  "instructions": "You are a personal math tutor. Help students with their homework.",
+  "tools": [
+    {
+      "type": "code_interpreter"
+    }
+  ],
+  "metadata": {},
+  "top_p": 1.0,
+  "temperature": 1.0,
+  "response_format": "auto"
+}
+```
+</ResponseExample>

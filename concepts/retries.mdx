@@ -1,0 +1,342 @@
+---
+title: 'Retries'
+description: 'Configure automatic retry logic for failed API requests'
+---
+
+## Overview
+
+The OpenAI Python SDK automatically retries certain failed requests using exponential backoff. This improves reliability by handling transient errors without manual intervention.
+
+**Default retry behavior:**
+- **Max retries:** 2 attempts (3 total requests including the initial attempt)
+- **Retry conditions:** Connection errors, timeouts, rate limits, and server errors
+- **Backoff strategy:** Exponential backoff with jitter
+
+## Automatic Retries
+
+The SDK automatically retries these error conditions:
+
+- **Connection errors** - Network connectivity problems
+- **408 Request Timeout** - Request took too long
+- **409 Conflict** - Resource conflict (lock timeout)
+- **429 Rate Limit** - Too many requests
+- **5xx Server Errors** - Internal server errors
+
+```python
+from openai import OpenAI
+
+# Default: 2 retries
+client = OpenAI()
+
+# This request will automatically retry up to 2 times on retryable errors
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+```
+
+## Configuring Retries
+
+### Client-Level Configuration
+
+Set the default retry behavior for all requests:
+
+```python
+from openai import OpenAI
+
+# Disable retries
+client = OpenAI(max_retries=0)
+
+# Custom retry count
+client = OpenAI(max_retries=5)
+
+# Unlimited retries (not recommended)
+import math
+client = OpenAI(max_retries=math.inf)
+```
+
+<Warning>
+Setting `max_retries` to `None` is not allowed. Use `0` to disable retries or a positive integer to set a limit.
+</Warning>
+
+### Per-Request Configuration
+
+Override retry settings for individual requests:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(max_retries=2)  # Default
+
+# Disable retries for this request
+response = client.with_options(max_retries=0).chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+
+# More retries for critical requests
+response = client.with_options(max_retries=5).chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Important message"}],
+)
+```
+
+## Backoff Strategy
+
+The SDK uses exponential backoff with jitter to space out retry attempts:
+
+### Algorithm
+
+1. **Initial delay:** 0.5 seconds
+2. **Exponential increase:** Delay doubles with each retry
+3. **Maximum delay:** 8 seconds
+4. **Jitter:** ±25% random variation
+
+### Calculation
+
+```python
+# Simplified retry delay calculation
+initial_delay = 0.5  # seconds
+max_delay = 8.0      # seconds
+retries_taken = 2
+
+# Base delay: 0.5 * 2^retries_taken
+delay = min(initial_delay * (2 ** retries_taken), max_delay)
+
+# Add jitter: ±25%
+jitter = 1 - 0.25 * random()
+actual_delay = delay * jitter
+```
+
+### Example Timeline
+
+```
+Attempt 1 (initial):  0.0s - Request fails
+                      0.5s - Wait (0.5s * jitter)
+Attempt 2 (retry 1):  0.5s - Request fails
+                      1.5s - Wait (1.0s * jitter)
+Attempt 3 (retry 2):  2.0s - Request succeeds
+```
+
+## Retry-After Header
+
+The SDK respects the `Retry-After` header from rate limit responses:
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+# If the API returns 429 with "Retry-After: 10",
+# the SDK will wait 10 seconds before retrying
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+```
+
+The SDK also supports the non-standard `retry-after-ms` header for millisecond precision.
+
+**Priority:**
+1. `retry-after-ms` header (milliseconds)
+2. `Retry-After` header (seconds or HTTP date)
+3. Exponential backoff algorithm
+
+<Info>
+If the `Retry-After` value is reasonable (≤60 seconds), it takes precedence over the exponential backoff calculation.
+</Info>
+
+## Server-Controlled Retries
+
+The API can explicitly control retry behavior using the `x-should-retry` header:
+
+- `x-should-retry: true` - Always retry, even if not normally retryable
+- `x-should-retry: false` - Never retry, even if normally retryable
+
+```python
+# The SDK automatically respects x-should-retry headers
+# No additional configuration needed
+```
+
+## Idempotency
+
+The SDK automatically adds idempotency headers to retried requests (except GET requests):
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+# Each retry attempt includes: X-Stainless-Idempotency-Key header
+# This prevents duplicate operations on retries
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+```
+
+The idempotency key is generated once per request and reused across all retry attempts.
+
+## Retry Headers
+
+The SDK includes metadata headers with each request:
+
+- `x-stainless-retry-count` - Number of retries taken (0 for first attempt)
+- `x-stainless-read-timeout` - Read timeout in seconds
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+# Headers automatically included:
+# x-stainless-retry-count: 0 (first attempt)
+# x-stainless-retry-count: 1 (first retry)
+# x-stainless-retry-count: 2 (second retry)
+```
+
+## Async Retries
+
+Retries work identically with `AsyncOpenAI`, using async sleep:
+
+```python
+import asyncio
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI(max_retries=3)
+
+async def main():
+    # Automatically retries up to 3 times
+    response = await client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": "Hello!"}],
+    )
+
+asyncio.run(main())
+```
+
+## Custom Retry Logic
+
+For custom retry logic, catch exceptions and implement your own strategy:
+
+```python
+import time
+import openai
+from openai import OpenAI
+
+client = OpenAI(max_retries=0)  # Disable automatic retries
+
+def create_with_retry(max_attempts=3, backoff_factor=2):
+    for attempt in range(max_attempts):
+        try:
+            return client.chat.completions.create(
+                model="gpt-4",
+                messages=[{"role": "user", "content": "Hello!"}],
+            )
+        except openai.RateLimitError as e:
+            if attempt == max_attempts - 1:
+                raise
+            
+            # Custom backoff
+            wait_time = backoff_factor ** attempt
+            print(f"Rate limited, waiting {wait_time}s")
+            time.sleep(wait_time)
+        except openai.APIConnectionError as e:
+            if attempt == max_attempts - 1:
+                raise
+            
+            print(f"Connection failed, retrying...")
+            time.sleep(1)
+
+response = create_with_retry()
+```
+
+## Monitoring Retries
+
+Enable logging to see retry attempts:
+
+```bash
+export OPENAI_LOG=debug
+```
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+# Logs will show:
+# - "Sending HTTP Request: POST https://api.openai.com/v1/chat/completions"
+# - "Encountered httpx.TimeoutException"
+# - "2 retries left"
+# - "Retrying request in 0.5 seconds"
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+```
+
+## Best Practices
+
+<Warning>
+- **Don't disable retries** unless you have a specific reason - they handle transient errors automatically
+- **Use reasonable max_retries** - Very high values can cause long delays
+- **Let the SDK handle retries** - The built-in strategy is well-tested
+- **Monitor rate limits** - Adjust your request rate if you frequently hit 429 errors
+- **Consider exponential backoff** for custom retry logic
+</Warning>
+
+## Error Scenarios
+
+### Retried Automatically
+
+```python
+import openai
+from openai import OpenAI
+
+client = OpenAI(max_retries=2)
+
+try:
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": "Hello!"}],
+    )
+except openai.APITimeoutError:
+    # Raised only after 2 retry attempts
+    print("Request timed out after retries")
+except openai.RateLimitError:
+    # Raised only after 2 retry attempts
+    print("Rate limit exceeded after retries")
+except openai.InternalServerError:
+    # Raised only after 2 retry attempts
+    print("Server error after retries")
+```
+
+### Not Retried
+
+```python
+import openai
+from openai import OpenAI
+
+client = OpenAI(max_retries=2)
+
+try:
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": "Hello!"}],
+    )
+except openai.AuthenticationError:
+    # Never retried - invalid API key
+    print("Authentication failed")
+except openai.BadRequestError:
+    # Never retried - malformed request
+    print("Invalid request")
+except openai.NotFoundError:
+    # Never retried - resource doesn't exist
+    print("Resource not found")
+```
+
+## Related
+
+- [Error Handling](/concepts/error-handling) - Exception types and handling
+- [Timeouts](/concepts/timeouts) - Configuring request timeouts
+- [Client Initialization](/concepts/client) - Client configuration options

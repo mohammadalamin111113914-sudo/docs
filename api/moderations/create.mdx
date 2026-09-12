@@ -1,0 +1,150 @@
+---
+title: 'Create Moderation'
+description: 'Classifies if text and/or image inputs are potentially harmful'
+---
+
+## Overview
+
+The moderation endpoint classifies text and image content to detect potentially harmful material across multiple categories. Learn more in the [moderation guide](https://platform.openai.com/docs/guides/moderation).
+
+## Method
+
+```python
+client.moderations.create(
+    input="Sample text to moderate",
+    model="omni-moderation-latest"
+)
+```
+
+## Parameters
+
+<ParamField path="input" type="string | array" required>
+  Input to classify. Can be:
+  - A single string
+  - An array of strings
+  - An array of multi-modal input objects (text and images)
+</ParamField>
+
+<ParamField path="model" type="string">
+  The content moderation model to use. Available models:
+  - `omni-moderation-latest` - Latest omni-modal model
+  - `omni-moderation-2024-09-26` - Specific omni-modal version
+  - `text-moderation-latest` - Latest text-only model
+  - `text-moderation-stable` - Stable text-only model
+  
+  Learn more in the [moderation guide](https://platform.openai.com/docs/guides/moderation) and about [available models](https://platform.openai.com/docs/models#moderation).
+</ParamField>
+
+## Response
+
+Returns a `ModerationCreateResponse` object containing:
+
+<ResponseField name="id" type="string">
+  Unique identifier for the moderation request
+</ResponseField>
+
+<ResponseField name="model" type="string">
+  The model used to generate the moderation results
+</ResponseField>
+
+<ResponseField name="results" type="array">
+  List of moderation objects, one for each input
+  
+  <Expandable title="Moderation object">
+    <ResponseField name="flagged" type="boolean">
+      Whether any category was flagged
+    </ResponseField>
+    
+    <ResponseField name="categories" type="object">
+      Boolean flags for each category:
+      - `harassment` - Harassing language
+      - `harassment/threatening` - Harassment with violence/harm
+      - `hate` - Hate speech based on protected attributes
+      - `hate/threatening` - Hateful content with violence/harm
+      - `illicit` - Instructions for wrongdoing
+      - `illicit/violent` - Violent wrongdoing instructions
+      - `self-harm` - Self-harm promotion
+      - `self-harm/instructions` - Self-harm instructions
+      - `self-harm/intent` - Self-harm intent expression
+      - `sexual` - Sexual content
+      - `sexual/minors` - Sexual content involving minors
+      - `violence` - Violence depiction
+      - `violence/graphic` - Graphic violence
+    </ResponseField>
+    
+    <ResponseField name="category_scores" type="object">
+      Confidence scores (0-1) for each category with the same keys as categories
+    </ResponseField>
+    
+    <ResponseField name="category_applied_input_types" type="object">
+      Input types (text/image) that each score applies to
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Examples
+
+### Text Moderation
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+response = client.moderations.create(
+    input="I want to hurt someone"
+)
+
+result = response.results[0]
+if result.flagged:
+    print("Content flagged!")
+    print(f"Violence score: {result.category_scores.violence}")
+    print(f"Categories flagged: {[k for k, v in result.categories.model_dump().items() if v]}")
+```
+
+### Multi-Modal Moderation
+
+```python
+response = client.moderations.create(
+    model="omni-moderation-latest",
+    input=[
+        {
+            "type": "text",
+            "text": "Check this image"
+        },
+        {
+            "type": "image_url",
+            "image_url": {
+                "url": "https://example.com/image.jpg"
+            }
+        }
+    ]
+)
+```
+
+### Batch Moderation
+
+```python
+response = client.moderations.create(
+    input=[
+        "First text to check",
+        "Second text to check",
+        "Third text to check"
+    ]
+)
+
+for idx, result in enumerate(response.results):
+    print(f"Input {idx}: Flagged={result.flagged}")
+```
+
+## Async Usage
+
+```python
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+
+response = await client.moderations.create(
+    input="Text to moderate"
+)
+```

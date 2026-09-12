@@ -1,0 +1,156 @@
+---
+title: "Create Batch"
+api: "POST https://api.openai.com/v1/batches"
+---
+
+Creates and executes a batch from an uploaded file of requests.
+
+## Request Body
+
+<ParamField body="completion_window" type="string" required>
+  The time frame within which the batch should be processed. Currently only `24h` is supported.
+</ParamField>
+
+<ParamField body="endpoint" type="string" required>
+  The endpoint to be used for all requests in the batch. Currently supported:
+  - `/v1/responses`
+  - `/v1/chat/completions`
+  - `/v1/embeddings`
+  - `/v1/completions`
+  - `/v1/moderations`
+  - `/v1/images/generations`
+  - `/v1/images/edits`
+  
+  Note: `/v1/embeddings` batches are restricted to a maximum of 50,000 embedding inputs.
+</ParamField>
+
+<ParamField body="input_file_id" type="string" required>
+  The ID of an uploaded file that contains requests for the new batch.
+  
+  Your input file must be:
+  - Formatted as a [JSONL file](https://platform.openai.com/docs/api-reference/batch/request-input)
+  - Uploaded with the purpose `batch`
+  - Up to 50,000 requests
+  - Up to 200 MB in size
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Set of 16 key-value pairs that can be attached to an object. This can be useful for storing additional information about the object in a structured format.
+  
+  Keys are strings with a maximum length of 64 characters. Values are strings with a maximum length of 512 characters.
+</ParamField>
+
+<ParamField body="output_expires_after" type="object">
+  The expiration policy for the output and/or error file that are generated for a batch.
+</ParamField>
+
+## Response
+
+Returns a `Batch` object.
+
+<ResponseField name="id" type="string">
+  The batch ID.
+</ResponseField>
+
+<ResponseField name="object" type="string">
+  The object type, always `batch`.
+</ResponseField>
+
+<ResponseField name="endpoint" type="string">
+  The OpenAI API endpoint used by the batch.
+</ResponseField>
+
+<ResponseField name="input_file_id" type="string">
+  The ID of the input file for the batch.
+</ResponseField>
+
+<ResponseField name="completion_window" type="string">
+  The time frame within which the batch should be processed.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  The current status of the batch. One of:
+  - `validating`
+  - `failed`
+  - `in_progress`
+  - `finalizing`
+  - `completed`
+  - `expired`
+  - `cancelling`
+  - `cancelled`
+</ResponseField>
+
+<ResponseField name="output_file_id" type="string">
+  The ID of the file containing the outputs of successfully executed requests.
+</ResponseField>
+
+<ResponseField name="error_file_id" type="string">
+  The ID of the file containing the outputs of requests with errors.
+</ResponseField>
+
+<ResponseField name="created_at" type="integer">
+  The Unix timestamp (in seconds) for when the batch was created.
+</ResponseField>
+
+<ResponseField name="metadata" type="object">
+  Set of 16 key-value pairs attached to the object.
+</ResponseField>
+
+<RequestExample>
+```python Python
+from openai import OpenAI
+client = OpenAI()
+
+batch = client.batches.create(
+    input_file_id="file-abc123",
+    endpoint="/v1/chat/completions",
+    completion_window="24h",
+    metadata={"description": "nightly eval job"}
+)
+```
+
+```javascript Node.js
+import OpenAI from "openai";
+const openai = new OpenAI();
+
+const batch = await openai.batches.create({
+  input_file_id: "file-abc123",
+  endpoint: "/v1/chat/completions",
+  completion_window: "24h",
+  metadata: { description: "nightly eval job" }
+});
+```
+
+```bash cURL
+curl https://api.openai.com/v1/batches \\
+  -H "Authorization: Bearer $OPENAI_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "input_file_id": "file-abc123",
+    "endpoint": "/v1/chat/completions",
+    "completion_window": "24h"
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "id": "batch_abc123",
+  "object": "batch",
+  "endpoint": "/v1/chat/completions",
+  "input_file_id": "file-abc123",
+  "completion_window": "24h",
+  "status": "validating",
+  "created_at": 1711073447,
+  "request_counts": {
+    "total": 0,
+    "completed": 0,
+    "failed": 0
+  },
+  "metadata": {
+    "description": "nightly eval job"
+  }
+}
+```
+</ResponseExample>

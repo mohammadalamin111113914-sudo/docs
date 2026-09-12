@@ -1,0 +1,334 @@
+---
+title: 'Realtime Events'
+description: 'Send and receive events over the Realtime WebSocket connection'
+---
+
+## Overview
+
+The Realtime API uses an event-based protocol where both client and server send events over the WebSocket connection. Events are JSON objects with a `type` field that determines their structure and purpose.
+
+## Event Categories
+
+### Server Events
+
+Events sent from the server to the client:
+
+- **Session events**: `session.created`, `session.updated`
+- **Conversation events**: `conversation.created`, `conversation.item.created`, `conversation.item.deleted`
+- **Input audio events**: `input_audio_buffer.committed`, `input_audio_buffer.cleared`, `input_audio_buffer.speech_started`, `input_audio_buffer.speech_stopped`
+- **Response events**: `response.created`, `response.done`, `response.output_item.added`, `response.content_part.added`
+- **Audio events**: `response.audio.delta`, `response.audio.done`, `response.audio_transcript.delta`
+- **Error events**: `error`
+
+### Client Events
+
+Events sent from the client to the server:
+
+- **Session control**: `session.update`
+- **Input audio**: `input_audio_buffer.append`, `input_audio_buffer.commit`, `input_audio_buffer.clear`
+- **Conversation management**: `conversation.item.create`, `conversation.item.delete`, `conversation.item.truncate`
+- **Response control**: `response.create`, `response.cancel`
+
+## Sending Events
+
+### Response Creation
+
+Trigger model inference to generate a response:
+
+```python
+connection.response.create(
+    response={
+        "instructions": "Please answer briefly",
+        "temperature": 0.7,
+        "max_output_tokens": 150
+    }
+)
+```
+
+### Cancel Response
+
+Cancel an in-progress response:
+
+```python
+connection.response.cancel()
+```
+
+### Input Audio Buffer
+
+#### Append Audio
+
+```python
+import base64
+
+audio_data = b"..."  # PCM16 audio bytes
+connection.input_audio_buffer.append(
+    audio=base64.b64encode(audio_data).decode('utf-8')
+)
+```
+
+#### Commit Audio Buffer
+
+Create a user message from the audio buffer:
+
+```python
+connection.input_audio_buffer.commit()
+```
+
+#### Clear Audio Buffer
+
+```python
+connection.input_audio_buffer.clear()
+```
+
+### Conversation Management
+
+#### Create Conversation Item
+
+Add a message to the conversation:
+
+```python
+connection.conversation.item.create(
+    item={
+        "type": "message",
+        "role": "user",
+        "content": [
+            {
+                "type": "input_text",
+                "text": "Hello, how are you?"
+            }
+        ]
+    }
+)
+```
+
+#### Delete Conversation Item
+
+```python
+connection.conversation.item.delete(item_id="item_123")
+```
+
+#### Truncate Audio
+
+Truncate assistant audio that hasn't been played:
+
+```python
+connection.conversation.item.truncate(
+    item_id="item_123",
+    content_index=0,
+    audio_end_ms=1000  # Truncate after 1 second
+)
+```
+
+## Receiving Events
+
+### Event Loop Pattern
+
+```python
+for event in connection:
+    match event.type:
+        case "session.created":
+            print(f"Session ID: {event.session.id}")
+        
+        case "response.audio.delta":
+            # Stream audio output
+            audio_chunk = base64.b64decode(event.delta)
+            # Process audio_chunk
+        
+        case "response.audio_transcript.delta":
+            # Stream text transcript
+            print(event.delta, end="", flush=True)
+        
+        case "response.done":
+            print(f"\nResponse status: {event.response.status}")
+            if event.response.status == "completed":
+                # Handle completed response
+                pass
+        
+        case "input_audio_buffer.speech_started":
+            # User started speaking - may want to cancel current output
+            connection.response.cancel()
+        
+        case "error":
+            print(f"Error: {event.error.message}")
+```
+
+### Event Properties
+
+All events include:
+
+<ResponseField name="type" type="string">
+  The event type identifier
+</ResponseField>
+
+<ResponseField name="event_id" type="string">
+  Unique identifier for the event
+</ResponseField>
+
+## Common Event Types
+
+### Session Created
+
+Received when connection is established:
+
+```python
+{
+    "type": "session.created",
+    "event_id": "event_123",
+    "session": {
+        "id": "sess_123",
+        "model": "gpt-4o-realtime-preview",
+        "instructions": "...",
+        "voice": "alloy",
+        "turn_detection": { ... },
+        "tools": [ ... ]
+    }
+}
+```
+
+### Response Audio Delta
+
+Streaming audio output from the model:
+
+```python
+{
+    "type": "response.audio.delta",
+    "event_id": "event_456",
+    "response_id": "resp_123",
+    "item_id": "item_456",
+    "output_index": 0,
+    "content_index": 0,
+    "delta": "base64_encoded_audio_chunk"
+}
+```
+
+### Response Done
+
+Indicates response completion:
+
+```python
+{
+    "type": "response.done",
+    "event_id": "event_789",
+    "response": {
+        "id": "resp_123",
+        "status": "completed",  # or "cancelled", "failed", "incomplete"
+        "output": [ ... ],
+        "usage": {
+            "total_tokens": 150,
+            "input_tokens": 50,
+            "output_tokens": 100
+        }
+    }
+}
+```
+
+### Error Event
+
+```python
+{
+    "type": "error",
+    "event_id": "event_999",
+    "error": {
+        "type": "invalid_request_error",
+        "code": "invalid_value",
+        "message": "Invalid parameter value",
+        "param": "temperature"
+    }
+}
+```
+
+## Advanced Patterns
+
+### Function Calling
+
+Handle function calls from the model:
+
+```python
+for event in connection:
+    if event.type == "response.function_call_arguments.done":
+        # Parse function call
+        import json
+        function_name = event.name
+        arguments = json.loads(event.arguments)
+        
+        # Execute function
+        result = execute_function(function_name, arguments)
+        
+        # Send result back
+        connection.conversation.item.create(
+            item={
+                "type": "function_call_output",
+                "call_id": event.call_id,
+                "output": json.dumps(result)
+            }
+        )
+```
+
+### Interruption Handling
+
+```python
+for event in connection:
+    if event.type == "input_audio_buffer.speech_started":
+        # User interrupted - cancel current response
+        connection.response.cancel()
+        
+        # Clear output audio buffer (WebRTC/SIP only)
+        connection.output_audio_buffer.clear()
+```
+
+### Text-Only Mode
+
+```python
+# Configure session for text-only
+connection.session.update(
+    session={
+        "modalities": ["text"],
+        "instructions": "Respond with text only"
+    }
+)
+
+# Create text conversation
+connection.conversation.item.create(
+    item={
+        "type": "message",
+        "role": "user",
+        "content": [{"type": "input_text", "text": "Hello"}]
+    }
+)
+
+connection.response.create()
+
+for event in connection:
+    if event.type == "response.text.delta":
+        print(event.delta, end="", flush=True)
+    elif event.type == "response.done":
+        break
+```
+
+## Async Event Handling
+
+```python
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+
+async with client.realtime.connect() as connection:
+    # Send events
+    await connection.input_audio_buffer.append(audio=audio_b64)
+    await connection.response.create()
+    
+    # Receive events
+    async for event in connection:
+        if event.type == "response.audio.delta":
+            await process_audio(event.delta)
+        elif event.type == "response.done":
+            break
+```
+
+## Notes
+
+- Events are processed in order
+- Some events (like `input_audio_buffer.append`) don't receive confirmation responses
+- Use `event_id` parameter to track specific events
+- The server may send multiple events in rapid succession
+- Connection automatically handles WebSocket framing and parsing

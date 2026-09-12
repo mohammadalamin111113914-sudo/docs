@@ -1,0 +1,113 @@
+---
+title: "Retrieve Batch"
+api: "GET https://api.openai.com/v1/batches/{batch_id}"
+---
+
+Retrieves a batch.
+
+## Path Parameters
+
+<ParamField path="batch_id" type="string" required>
+  The ID of the batch to retrieve.
+</ParamField>
+
+## Response
+
+Returns the `Batch` object matching the specified ID.
+
+<ResponseField name="id" type="string">
+  The batch ID.
+</ResponseField>
+
+<ResponseField name="object" type="string">
+  The object type, always `batch`.
+</ResponseField>
+
+<ResponseField name="endpoint" type="string">
+  The OpenAI API endpoint used by the batch.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  The current status of the batch.
+</ResponseField>
+
+<ResponseField name="request_counts" type="object">
+  The request counts for different statuses within the batch.
+  
+  <Expandable title="properties">
+    <ResponseField name="total" type="integer">
+      Total number of requests in the batch.
+    </ResponseField>
+    
+    <ResponseField name="completed" type="integer">
+      Number of requests that have been completed successfully.
+    </ResponseField>
+    
+    <ResponseField name="failed" type="integer">
+      Number of requests that have failed.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="output_file_id" type="string">
+  The ID of the file containing the outputs of successfully executed requests.
+</ResponseField>
+
+<ResponseField name="error_file_id" type="string">
+  The ID of the file containing the outputs of requests with errors.
+</ResponseField>
+
+<ResponseField name="created_at" type="integer">
+  The Unix timestamp (in seconds) for when the batch was created.
+</ResponseField>
+
+<ResponseField name="completed_at" type="integer">
+  The Unix timestamp (in seconds) for when the batch was completed.
+</ResponseField>
+
+<RequestExample>
+```python Python
+from openai import OpenAI
+client = OpenAI()
+
+batch = client.batches.retrieve("batch_abc123")
+print(batch.status)
+```
+
+```javascript Node.js
+import OpenAI from "openai";
+const openai = new OpenAI();
+
+const batch = await openai.batches.retrieve("batch_abc123");
+console.log(batch.status);
+```
+
+```bash cURL
+curl https://api.openai.com/v1/batches/batch_abc123 \\
+  -H "Authorization: Bearer $OPENAI_API_KEY" \\
+  -H "Content-Type: application/json"
+```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "id": "batch_abc123",
+  "object": "batch",
+  "endpoint": "/v1/chat/completions",
+  "input_file_id": "file-abc123",
+  "completion_window": "24h",
+  "status": "completed",
+  "output_file_id": "file-xyz789",
+  "error_file_id": "file-error456",
+  "created_at": 1711073447,
+  "in_progress_at": 1711073448,
+  "completed_at": 1711075047,
+  "request_counts": {
+    "total": 100,
+    "completed": 95,
+    "failed": 5
+  }
+}
+```
+</ResponseExample>

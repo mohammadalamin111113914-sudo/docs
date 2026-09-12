@@ -1,0 +1,407 @@
+---
+title: 'Timeouts'
+description: 'Configure request timeout behavior for API calls'
+---
+
+## Overview
+
+Timeouts prevent requests from hanging indefinitely. The OpenAI Python SDK provides flexible timeout configuration at both the client and request level.
+
+**Default timeout:** 600 seconds (10 minutes)
+
+## Default Behavior
+
+By default, all requests timeout after 10 minutes:
+
+```python
+from openai import OpenAI
+
+# Default: 600 second timeout
+client = OpenAI()
+
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+# Times out after 10 minutes if no response
+```
+
+## Simple Timeout Configuration
+
+### Client-Level Timeout
+
+Set a default timeout for all requests:
+
+```python
+from openai import OpenAI
+
+# 20 second timeout
+client = OpenAI(timeout=20.0)
+
+# 5 minute timeout
+client = OpenAI(timeout=300.0)
+
+# No timeout (wait indefinitely)
+client = OpenAI(timeout=None)
+```
+
+<Warning>
+Setting `timeout=None` disables timeouts completely. This can cause requests to hang indefinitely if the server doesn't respond.
+</Warning>
+
+### Per-Request Timeout
+
+Override the timeout for specific requests:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(timeout=600.0)  # Default 10 minutes
+
+# Short timeout for quick request
+response = client.with_options(timeout=5.0).chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Quick question"}],
+)
+
+# Longer timeout for complex request
+response = client.with_options(timeout=120.0).chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Detailed analysis..."}],
+)
+```
+
+## Granular Timeout Configuration
+
+For fine-grained control, use `httpx.Timeout` to configure different timeout phases:
+
+```python
+import httpx
+from openai import OpenAI
+
+client = OpenAI(
+    timeout=httpx.Timeout(
+        timeout=60.0,    # Total timeout
+        connect=5.0,     # Connection timeout
+        read=30.0,       # Read timeout
+        write=10.0,      # Write timeout
+        pool=5.0,        # Connection pool timeout
+    ),
+)
+```
+
+### Timeout Phases
+
+<ParamField path="timeout" type="float" default="60.0">
+  Total timeout for the entire request/response cycle. This is the maximum time from starting the request to receiving the complete response.
+</ParamField>
+
+<ParamField path="connect" type="float" default="5.0">
+  Maximum time to establish a connection to the server.
+</ParamField>
+
+<ParamField path="read" type="float" default="30.0">
+  Maximum time to wait for data to be received from the server. This applies per read operation, not the entire response.
+</ParamField>
+
+<ParamField path="write" type="float" default="10.0">
+  Maximum time to wait for data to be sent to the server. This applies per write operation.
+</ParamField>
+
+<ParamField path="pool" type="float" default="5.0">
+  Maximum time to wait for a connection from the connection pool.
+</ParamField>
+
+### Example Configurations
+
+#### Fast Requests
+
+```python
+import httpx
+from openai import OpenAI
+
+# Short timeouts for quick requests
+client = OpenAI(
+    timeout=httpx.Timeout(
+        timeout=10.0,
+        connect=2.0,
+        read=5.0,
+        write=5.0,
+    ),
+)
+```
+
+#### Long-Running Requests
+
+```python
+import httpx
+from openai import OpenAI
+
+# Longer timeouts for complex operations
+client = OpenAI(
+    timeout=httpx.Timeout(
+        timeout=300.0,    # 5 minutes total
+        connect=10.0,
+        read=120.0,       # 2 minutes per read
+        write=30.0,
+    ),
+)
+```
+
+#### Streaming Requests
+
+```python
+import httpx
+from openai import OpenAI
+
+# Optimized for streaming
+client = OpenAI(
+    timeout=httpx.Timeout(
+        timeout=None,     # No total timeout for streams
+        connect=5.0,
+        read=60.0,        # Per-chunk timeout
+        write=10.0,
+    ),
+)
+
+stream = client.chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Write a story"}],
+    stream=True,
+)
+
+for chunk in stream:
+    print(chunk.choices[0].delta.content, end="")
+# Each chunk must arrive within 60 seconds
+```
+
+<Info>
+For streaming requests, set `timeout=None` and rely on `read` timeout for per-chunk timing.
+</Info>
+
+## Timeout Errors
+
+When a timeout occurs, the SDK raises `APITimeoutError`:
+
+```python
+import openai
+from openai import OpenAI
+
+client = OpenAI(timeout=5.0)
+
+try:
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": "Hello!"}],
+    )
+except openai.APITimeoutError as e:
+    print(f"Request timed out: {e.message}")
+    print(f"Request: {e.request.url}")
+```
+
+<Note>
+Timeout errors are automatically retried by default. See [Retries](/concepts/retries) for configuration.
+</Note>
+
+## Async Timeouts
+
+Timeouts work identically with `AsyncOpenAI`:
+
+```python
+import asyncio
+import httpx
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI(
+    timeout=httpx.Timeout(
+        timeout=30.0,
+        connect=5.0,
+        read=15.0,
+        write=10.0,
+    ),
+)
+
+async def main():
+    response = await client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": "Hello!"}],
+    )
+    print(response.choices[0].message.content)
+
+asyncio.run(main())
+```
+
+## Custom HTTP Client Timeout
+
+When providing a custom HTTP client, the SDK uses the client's timeout if not explicitly set:
+
+```python
+import httpx
+from openai import OpenAI, DefaultHttpxClient
+
+# Timeout from custom client
+custom_client = httpx.Client(timeout=30.0)
+client = OpenAI(http_client=custom_client)
+# Uses 30 second timeout from custom_client
+
+# Override with explicit timeout
+client = OpenAI(
+    http_client=custom_client,
+    timeout=60.0,  # Overrides custom_client timeout
+)
+```
+
+<Warning>
+When using a custom `http_client`, prefer `DefaultHttpxClient` to preserve SDK defaults.
+</Warning>
+
+## Timeout Headers
+
+The SDK includes the read timeout in request headers:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(timeout=30.0)
+
+# Automatically includes header:
+# x-stainless-read-timeout: 30.0
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+```
+
+This helps with server-side debugging and timeout analysis.
+
+## Best Practices
+
+<Warning>
+- **Set reasonable timeouts** - Balance between too short (frequent failures) and too long (poor UX)
+- **Use per-request timeouts** for requests with different expected durations
+- **Configure streaming timeouts** with `timeout=None` and appropriate `read` timeout
+- **Monitor timeout errors** - Frequent timeouts may indicate performance issues
+- **Consider retry behavior** - Timeouts are retried by default, increasing total wait time
+</Warning>
+
+## Common Scenarios
+
+### Short Requests
+
+```python
+import httpx
+from openai import OpenAI
+
+client = OpenAI(
+    timeout=httpx.Timeout(
+        timeout=15.0,
+        connect=2.0,
+        read=10.0,
+    ),
+)
+
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "What is 2+2?"}],
+)
+```
+
+### Long Completions
+
+```python
+import httpx
+from openai import OpenAI
+
+client = OpenAI(
+    timeout=httpx.Timeout(
+        timeout=180.0,    # 3 minutes
+        connect=5.0,
+        read=120.0,
+    ),
+)
+
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Write a detailed essay..."}],
+)
+```
+
+### File Uploads
+
+```python
+import httpx
+from openai import OpenAI
+from pathlib import Path
+
+client = OpenAI(
+    timeout=httpx.Timeout(
+        timeout=300.0,     # 5 minutes
+        connect=5.0,
+        write=120.0,       # 2 minutes for upload
+        read=60.0,
+    ),
+)
+
+file = client.files.create(
+    file=Path("large_file.jsonl"),
+    purpose="fine-tune",
+)
+```
+
+### Streaming
+
+```python
+import httpx
+from openai import OpenAI
+
+client = OpenAI(
+    timeout=httpx.Timeout(
+        timeout=None,      # No total timeout
+        connect=5.0,
+        read=30.0,         # 30s between chunks
+    ),
+)
+
+stream = client.chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Tell me a story"}],
+    stream=True,
+)
+
+for chunk in stream:
+    if chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="")
+```
+
+## Debugging Timeouts
+
+Enable debug logging to see timeout information:
+
+```bash
+export OPENAI_LOG=debug
+```
+
+```python
+from openai import OpenAI
+
+client = OpenAI(timeout=10.0)
+
+# Logs will show:
+# - Request headers including x-stainless-read-timeout
+# - Timeout exceptions with full details
+# - Retry attempts due to timeouts
+try:
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": "Hello!"}],
+    )
+except Exception as e:
+    print(f"Error: {e}")
+```
+
+## Related
+
+- [Retries](/concepts/retries) - Automatic retry configuration (timeouts are retried)
+- [Error Handling](/concepts/error-handling) - Handling APITimeoutError
+- [Client Initialization](/concepts/client) - Client configuration options
+- [Streaming](/concepts/streaming) - Timeout configuration for streaming

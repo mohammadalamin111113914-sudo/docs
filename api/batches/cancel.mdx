@@ -1,0 +1,74 @@
+---
+title: "Cancel Batch"
+api: "POST https://api.openai.com/v1/batches/{batch_id}/cancel"
+---
+
+Cancels an in-progress batch. The batch will be in status `cancelling` for up to 10 minutes, before changing to `cancelled`, where it will have partial results (if any) available in the output file.
+
+## Path Parameters
+
+<ParamField path="batch_id" type="string" required>
+  The ID of the batch to cancel.
+</ParamField>
+
+## Response
+
+Returns the `Batch` object with status `cancelling`.
+
+<ResponseField name="id" type="string">
+  The batch ID.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Will be `cancelling` immediately after the request, then `cancelled` once cancellation is complete.
+</ResponseField>
+
+<ResponseField name="cancelling_at" type="integer">
+  The Unix timestamp (in seconds) for when the batch started cancelling.
+</ResponseField>
+
+<RequestExample>
+```python Python
+from openai import OpenAI
+client = OpenAI()
+
+batch = client.batches.cancel("batch_abc123")
+print(batch.status)  # "cancelling"
+```
+
+```javascript Node.js
+import OpenAI from "openai";
+const openai = new OpenAI();
+
+const batch = await openai.batches.cancel("batch_abc123");
+console.log(batch.status);  // "cancelling"
+```
+
+```bash cURL
+curl https://api.openai.com/v1/batches/batch_abc123/cancel \\
+  -X POST \\
+  -H "Authorization: Bearer $OPENAI_API_KEY" \\
+  -H "Content-Type: application/json"
+```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "id": "batch_abc123",
+  "object": "batch",
+  "endpoint": "/v1/chat/completions",
+  "input_file_id": "file-abc123",
+  "completion_window": "24h",
+  "status": "cancelling",
+  "created_at": 1711073447,
+  "in_progress_at": 1711073448,
+  "cancelling_at": 1711074447,
+  "request_counts": {
+    "total": 100,
+    "completed": 45,
+    "failed": 2
+  }
+}
+```
+</ResponseExample>

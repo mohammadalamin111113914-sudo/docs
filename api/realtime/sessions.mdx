@@ -1,0 +1,233 @@
+---
+title: 'Realtime Sessions'
+description: 'Establish WebSocket connections for low-latency realtime conversations'
+---
+
+## Overview
+
+The Realtime API enables low-latency, multi-modal conversational experiences using WebSocket connections. It supports text and audio as both input and output, as well as function calling.
+
+**Key benefits:**
+- **Native speech-to-speech**: Low latency by skipping intermediate text format
+- **Natural voices**: Models can laugh, whisper, and follow tone directions
+- **Simultaneous multimodal output**: Get both text and audio in real-time
+
+## Connection Setup
+
+The Realtime API is a stateful, event-based API that communicates over WebSocket.
+
+### WebSocket Connection
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+# Connect to the Realtime API
+with client.realtime.connect(model="gpt-4o-realtime-preview") as connection:
+    # Connection is now established
+    # Send and receive events through the connection
+    pass
+```
+
+### Connection Parameters
+
+<ParamField path="model" type="string">
+  The Realtime model to use. Required for Azure, optional for OpenAI.
+  
+  Examples: `gpt-4o-realtime-preview`, `gpt-4o-realtime-preview-2024-10-01`
+</ParamField>
+
+<ParamField path="call_id" type="string">
+  Optional call identifier for tracking purposes
+</ParamField>
+
+<ParamField path="extra_query" type="dict">
+  Additional query parameters for the WebSocket connection
+</ParamField>
+
+<ParamField path="extra_headers" type="dict">
+  Additional headers for the WebSocket connection
+</ParamField>
+
+<ParamField path="websocket_connection_options" type="dict">
+  WebSocket-specific connection options
+</ParamField>
+
+## Session Management
+
+### Update Session Configuration
+
+Update session settings at any time during the connection.
+
+```python
+with client.realtime.connect() as connection:
+    # Update session configuration
+    connection.session.update(
+        session={
+            "instructions": "You are a helpful assistant. Speak clearly and concisely.",
+            "voice": "alloy",
+            "input_audio_format": "pcm16",
+            "output_audio_format": "pcm16",
+            "turn_detection": {
+                "type": "server_vad",
+                "threshold": 0.5,
+                "prefix_padding_ms": 300,
+                "silence_duration_ms": 500
+            },
+            "tools": [
+                {
+                    "type": "function",
+                    "name": "get_weather",
+                    "description": "Get weather information",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "location": {"type": "string"}
+                        },
+                        "required": ["location"]
+                    }
+                }
+            ]
+        }
+    )
+```
+
+### Session Configuration Options
+
+<ParamField path="session.instructions" type="string">
+  System instructions for the model (e.g., "Be succinct", "Speak quickly")
+</ParamField>
+
+<ParamField path="session.voice" type="string">
+  Voice for audio output. Options: `alloy`, `echo`, `shimmer`
+  
+  Can only be updated before any audio output has been generated.
+</ParamField>
+
+<ParamField path="session.input_audio_format" type="string">
+  Format for input audio: `pcm16` or `g711_ulaw` or `g711_alaw`
+</ParamField>
+
+<ParamField path="session.output_audio_format" type="string">
+  Format for output audio: `pcm16` or `g711_ulaw` or `g711_alaw`
+</ParamField>
+
+<ParamField path="session.turn_detection" type="object">
+  Voice Activity Detection (VAD) configuration:
+  - `type`: `"server_vad"` or `null` to disable
+  - `threshold`: Detection sensitivity (0-1)
+  - `prefix_padding_ms`: Audio before speech starts
+  - `silence_duration_ms`: Silence duration to end turn
+</ParamField>
+
+<ParamField path="session.tools" type="array">
+  Function tools available to the model
+</ParamField>
+
+<ParamField path="session.tool_choice" type="string | object">
+  How model chooses tools: `auto`, `none`, `required`, or force a specific function
+</ParamField>
+
+<ParamField path="session.temperature" type="float">
+  Sampling temperature (0-2). Higher = more random.
+</ParamField>
+
+<ParamField path="session.max_output_tokens" type="int | 'inf'">
+  Maximum tokens per response (1-4096 or `"inf"`)
+</ParamField>
+
+## Receiving Events
+
+### Iterate Through Events
+
+```python
+with client.realtime.connect() as connection:
+    # Iterate through server events
+    for event in connection:
+        if event.type == "session.created":
+            print(f"Session created: {event.session.id}")
+        elif event.type == "response.done":
+            print("Response complete")
+        elif event.type == "error":
+            print(f"Error: {event.error}")
+```
+
+### Receive Single Event
+
+```python
+with client.realtime.connect() as connection:
+    # Wait for next event
+    event = connection.recv()
+    print(f"Received: {event.type}")
+    
+    # Or receive raw bytes
+    raw_data = connection.recv_bytes()
+    event = connection.parse_event(raw_data)
+```
+
+## Complete Example
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+# Establish connection with model
+with client.realtime.connect(model="gpt-4o-realtime-preview") as connection:
+    # Configure the session
+    connection.session.update(
+        session={
+            "instructions": "You are a helpful assistant. Be concise.",
+            "voice": "alloy",
+            "input_audio_format": "pcm16",
+            "output_audio_format": "pcm16",
+            "turn_detection": {
+                "type": "server_vad",
+                "threshold": 0.5,
+                "silence_duration_ms": 500
+            }
+        }
+    )
+    
+    # Send audio input
+    audio_data = b"..."  # PCM16 audio bytes
+    import base64
+    connection.input_audio_buffer.append(
+        audio=base64.b64encode(audio_data).decode('utf-8')
+    )
+    
+    # Process events
+    for event in connection:
+        if event.type == "response.audio.delta":
+            # Stream audio output
+            audio_chunk = base64.b64decode(event.delta)
+            # Play or save audio_chunk
+        elif event.type == "response.done":
+            print("Response complete")
+            break
+```
+
+## Async Usage
+
+```python
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+
+async with client.realtime.connect() as connection:
+    await connection.session.update(
+        session={"instructions": "Be helpful"}
+    )
+    
+    async for event in connection:
+        print(event.type)
+```
+
+## Notes
+
+- **Installation**: Requires `openai[realtime]` package: `pip install openai[realtime]`
+- **Context manager**: Connection is automatically closed when exiting the `with` block
+- **Manual connection**: Use `.enter()` method if you need to manage connection lifecycle manually
+- **Azure**: Model parameter is required for Azure Realtime API
+- Session configuration can be updated anytime except `voice` and `model`

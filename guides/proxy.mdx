@@ -1,0 +1,251 @@
+---
+title: Proxy Configuration
+description: Configure HTTP proxies for the OpenAI Python SDK
+---
+
+The OpenAI Python SDK uses [httpx](https://www.python-httpx.org/) for HTTP requests, which provides comprehensive proxy support.
+
+## Basic Proxy Configuration
+
+The simplest way to configure a proxy is by customizing the HTTP client:
+
+```python
+import httpx
+from openai import OpenAI, DefaultHttpxClient
+
+client = OpenAI(
+    http_client=DefaultHttpxClient(
+        proxy="http://my.proxy.example.com:8080",
+    ),
+)
+```
+
+## Environment Variables
+
+You can also use environment variables to configure proxies globally:
+
+```bash
+export HTTP_PROXY="http://my.proxy.example.com:8080"
+export HTTPS_PROXY="http://my.proxy.example.com:8080"
+```
+
+The httpx client will automatically use these environment variables:
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+# Proxy is automatically configured from environment variables
+```
+
+## Authenticated Proxies
+
+For proxies requiring authentication, include credentials in the proxy URL:
+
+```python
+import httpx
+from openai import OpenAI, DefaultHttpxClient
+
+client = OpenAI(
+    http_client=DefaultHttpxClient(
+        proxy="http://username:password@my.proxy.example.com:8080",
+    ),
+)
+```
+
+Or via environment variables:
+
+```bash
+export HTTPS_PROXY="http://username:password@my.proxy.example.com:8080"
+```
+
+## Custom Proxy Configuration
+
+For more advanced proxy configurations, you can customize the httpx transport:
+
+```python
+import httpx
+from openai import OpenAI, DefaultHttpxClient
+
+client = OpenAI(
+    http_client=DefaultHttpxClient(
+        proxy="http://my.proxy.example.com:8080",
+        transport=httpx.HTTPTransport(
+            local_address="0.0.0.0",
+            retries=3,
+        ),
+    ),
+)
+```
+
+## Different Proxies for HTTP and HTTPS
+
+You can specify different proxies for HTTP and HTTPS:
+
+```python
+import httpx
+from openai import OpenAI, DefaultHttpxClient
+
+proxies = {
+    "http://": "http://my.http.proxy.example.com:8080",
+    "https://": "http://my.https.proxy.example.com:8080",
+}
+
+client = OpenAI(
+    http_client=DefaultHttpxClient(
+        proxies=proxies,
+    ),
+)
+```
+
+Or with environment variables:
+
+```bash
+export HTTP_PROXY="http://my.http.proxy.example.com:8080"
+export HTTPS_PROXY="http://my.https.proxy.example.com:8080"
+```
+
+## SOCKS Proxies
+
+For SOCKS proxy support, install the `httpx[socks]` extra:
+
+```bash
+pip install httpx[socks]
+```
+
+Then configure a SOCKS proxy:
+
+```python
+import httpx
+from openai import OpenAI, DefaultHttpxClient
+
+client = OpenAI(
+    http_client=DefaultHttpxClient(
+        proxy="socks5://my.socks.proxy.example.com:1080",
+    ),
+)
+```
+
+## Per-Request Proxy
+
+You can configure proxies on a per-request basis using `with_options()`:
+
+```python
+import httpx
+from openai import OpenAI, DefaultHttpxClient
+
+client = OpenAI()
+
+# Use proxy for this request only
+completion = client.with_options(
+    http_client=DefaultHttpxClient(
+        proxy="http://my.proxy.example.com:8080",
+    )
+).chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+```
+
+## Async Proxy Configuration
+
+Proxy configuration works the same way with the async client:
+
+```python
+import httpx
+from openai import AsyncOpenAI, DefaultAsyncHttpxClient
+
+client = AsyncOpenAI(
+    http_client=DefaultAsyncHttpxClient(
+        proxy="http://my.proxy.example.com:8080",
+    ),
+)
+```
+
+## Disabling Proxies
+
+To disable environment variable proxies for specific requests:
+
+```python
+import httpx
+from openai import OpenAI, DefaultHttpxClient
+
+client = OpenAI(
+    http_client=DefaultHttpxClient(
+        proxies={},  # Empty dict disables environment variable proxies
+    ),
+)
+```
+
+## Troubleshooting
+
+### Testing Proxy Connection
+
+Verify your proxy configuration:
+
+```python
+import httpx
+
+# Test proxy connection
+try:
+    response = httpx.get(
+        "https://api.openai.com/v1/models",
+        proxies={"https://": "http://my.proxy.example.com:8080"},
+        headers={"Authorization": "Bearer YOUR_API_KEY"},
+    )
+    print("Proxy working:", response.status_code)
+except Exception as e:
+    print("Proxy error:", e)
+```
+
+### Common Issues
+
+<AccordionGroup>
+  <Accordion title="Connection timeouts">
+    Increase the timeout for proxy connections:
+    
+    ```python
+    from openai import OpenAI, DefaultHttpxClient
+    
+    client = OpenAI(
+        http_client=DefaultHttpxClient(
+            proxy="http://my.proxy.example.com:8080",
+        ),
+        timeout=60.0,  # Increase timeout to 60 seconds
+    )
+    ```
+  </Accordion>
+  
+  <Accordion title="SSL/TLS verification errors">
+    For corporate proxies with custom certificates, you may need to configure SSL verification:
+    
+    ```python
+    import httpx
+    from openai import OpenAI, DefaultHttpxClient
+    
+    client = OpenAI(
+        http_client=DefaultHttpxClient(
+            proxy="http://my.proxy.example.com:8080",
+            verify=False,  # Not recommended for production
+        ),
+    )
+    ```
+  </Accordion>
+  
+  <Accordion title="Proxy authentication failures">
+    Ensure your credentials are properly URL-encoded:
+    
+    ```python
+    from urllib.parse import quote
+    
+    username = quote("user@example.com")
+    password = quote("p@ssw0rd!")
+    proxy = f"http://{username}:{password}@proxy.example.com:8080"
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Learn More
+
+- [httpx Proxy Documentation](https://www.python-httpx.org/advanced/proxies/)
+- [httpx Transports Documentation](https://www.python-httpx.org/advanced/transports/)

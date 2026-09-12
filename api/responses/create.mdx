@@ -1,0 +1,409 @@
+---
+title: 'Create Response'
+description: 'Generate model responses with text, images, and tools'
+---
+
+# client.responses.create()
+
+Creates a model response. Provide text or image inputs to generate text or JSON outputs. Have the model call your own custom code or use built-in tools like web search or file search to use your own data as input for the model's response.
+
+## Method Signature
+
+```python
+client.responses.create(
+    model: str,
+    input: Union[str, ResponseInputParam] = None,
+    instructions: Optional[str] = None,
+    stream: Optional[bool] = False,
+    # ... additional parameters
+) -> Response
+```
+
+## Request Parameters
+
+<ParamField path="model" type="string" required>
+  Model ID used to generate the response, like `gpt-4o` or `o3`. OpenAI offers a wide range of models with different capabilities, performance characteristics, and price points. Refer to the [model guide](https://platform.openai.com/docs/models) to browse and compare available models.
+</ParamField>
+
+<ParamField path="input" type="string | object">
+  Text, image, or file inputs to the model, used to generate a response.
+  
+  Can be a simple string or a structured object with role and content.
+  
+  Learn more:
+  - [Text inputs and outputs](https://platform.openai.com/docs/guides/text)
+  - [Image inputs](https://platform.openai.com/docs/guides/images)
+  - [File inputs](https://platform.openai.com/docs/guides/pdf-files)
+  - [Conversation state](https://platform.openai.com/docs/guides/conversation-state)
+</ParamField>
+
+<ParamField path="instructions" type="string">
+  A system (or developer) message inserted into the model's context.
+  
+  When using along with `previous_response_id`, the instructions from a previous response will not be carried over to the next response. This makes it simple to swap out system (or developer) messages in new responses.
+</ParamField>
+
+<ParamField path="stream" type="boolean" default="false">
+  If set to true, the model response data will be streamed to the client as it is generated using server-sent events. See [Streaming responses](/api/responses/stream) for more information.
+</ParamField>
+
+<ParamField path="temperature" type="number">
+  What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic. We generally recommend altering this or `top_p` but not both.
+</ParamField>
+
+<ParamField path="max_output_tokens" type="integer">
+  An upper bound for the number of tokens that can be generated for a response, including visible output tokens and [reasoning tokens](https://platform.openai.com/docs/guides/reasoning).
+</ParamField>
+
+<ParamField path="top_p" type="number">
+  An alternative to sampling with temperature, called nucleus sampling, where the model considers the results of the tokens with top_p probability mass. So 0.1 means only the tokens comprising the top 10% probability mass are considered.
+  
+  We generally recommend altering this or `temperature` but not both.
+</ParamField>
+
+<ParamField path="tools" type="array">
+  An array of tools the model may call while generating a response. You can specify which tool to use by setting the `tool_choice` parameter.
+  
+  We support the following categories of tools:
+  - **Built-in tools**: Tools that are provided by OpenAI that extend the model's capabilities, like [web search](https://platform.openai.com/docs/guides/tools-web-search) or [file search](https://platform.openai.com/docs/guides/tools-file-search). Learn more about [built-in tools](https://platform.openai.com/docs/guides/tools).
+  - **MCP Tools**: Integrations with third-party systems via custom MCP servers or predefined connectors such as Google Drive and SharePoint. Learn more about [MCP Tools](https://platform.openai.com/docs/guides/tools-connectors-mcp).
+  - **Function calls (custom tools)**: Functions that are defined by you, enabling the model to call your own code with strongly typed arguments and outputs. Learn more about [function calling](https://platform.openai.com/docs/guides/function-calling).
+</ParamField>
+
+<ParamField path="tool_choice" type="object | string">
+  How the model should select which tool (or tools) to use when generating a response. See the `tools` parameter to see how to specify which tools the model can call.
+</ParamField>
+
+<ParamField path="parallel_tool_calls" type="boolean">
+  Whether to allow the model to run tool calls in parallel.
+</ParamField>
+
+<ParamField path="previous_response_id" type="string">
+  The unique ID of the previous response to the model. Use this to create multi-turn conversations. Learn more about [conversation state](https://platform.openai.com/docs/guides/conversation-state). Cannot be used in conjunction with `conversation`.
+</ParamField>
+
+<ParamField path="conversation" type="object">
+  The conversation that this response belongs to. Items from this conversation are prepended to `input_items` for this response request. Input items and output items from this response are automatically added to this conversation after this response completes.
+</ParamField>
+
+<ParamField path="text" type="object">
+  Configuration options for a text response from the model. Can be plain text or structured JSON data. Learn more:
+  - [Text inputs and outputs](https://platform.openai.com/docs/guides/text)
+  - [Structured Outputs](https://platform.openai.com/docs/guides/structured-outputs)
+</ParamField>
+
+<ParamField path="reasoning" type="object">
+  **gpt-5 and o-series models only**
+  
+  Configuration options for [reasoning models](https://platform.openai.com/docs/guides/reasoning).
+</ParamField>
+
+<ParamField path="metadata" type="object">
+  Set of 16 key-value pairs that can be attached to an object. This can be useful for storing additional information about the object in a structured format, and querying for objects via API or the dashboard.
+  
+  Keys are strings with a maximum length of 64 characters. Values are strings with a maximum length of 512 characters.
+</ParamField>
+
+<ParamField path="store" type="boolean">
+  Whether to store the generated model response for later retrieval via API.
+</ParamField>
+
+<ParamField path="background" type="boolean">
+  Whether to run the model response in the background. [Learn more](https://platform.openai.com/docs/guides/background).
+</ParamField>
+
+<ParamField path="prompt" type="object">
+  Reference to a prompt template and its variables. [Learn more](https://platform.openai.com/docs/guides/text?api-mode=responses#reusable-prompts).
+</ParamField>
+
+<ParamField path="prompt_cache_key" type="string">
+  Used by OpenAI to cache responses for similar requests to optimize your cache hit rates. Replaces the `user` field. [Learn more](https://platform.openai.com/docs/guides/prompt-caching).
+</ParamField>
+
+<ParamField path="prompt_cache_retention" type="string">
+  The retention policy for the prompt cache. Set to `24h` to enable extended prompt caching, which keeps cached prefixes active for longer, up to a maximum of 24 hours. [Learn more](https://platform.openai.com/docs/guides/prompt-caching#prompt-cache-retention).
+  
+  Options: `in-memory`, `24h`
+</ParamField>
+
+<ParamField path="safety_identifier" type="string">
+  A stable identifier used to help detect users of your application that may be violating OpenAI's usage policies. The IDs should be a string that uniquely identifies each user, with a maximum length of 64 characters. We recommend hashing their username or email address, in order to avoid sending us any identifying information. [Learn more](https://platform.openai.com/docs/guides/safety-best-practices#safety-identifiers).
+</ParamField>
+
+<ParamField path="service_tier" type="string">
+  Specifies the processing type used for serving the request.
+  
+  - If set to 'auto', then the request will be processed with the service tier configured in the Project settings. Unless otherwise configured, the Project will use 'default'.
+  - If set to 'default', then the request will be processed with the standard pricing and performance for the selected model.
+  - If set to '[flex](https://platform.openai.com/docs/guides/flex-processing)' or '[priority](https://openai.com/api-priority-processing/)', then the request will be processed with the corresponding service tier.
+  - When not set, the default behavior is 'auto'.
+  
+  Options: `auto`, `default`, `flex`, `scale`, `priority`
+</ParamField>
+
+<ParamField path="truncation" type="string" default="disabled">
+  The truncation strategy to use for the model response.
+  
+  - `auto`: If the input to this Response exceeds the model's context window size, the model will truncate the response to fit the context window by dropping items from the beginning of the conversation.
+  - `disabled` (default): If the input size will exceed the context window size for a model, the request will fail with a 400 error.
+  
+  Options: `auto`, `disabled`
+</ParamField>
+
+<ParamField path="max_tool_calls" type="integer">
+  The maximum number of total calls to built-in tools that can be processed in a response. This maximum number applies across all built-in tool calls, not per individual tool. Any further attempts to call a tool by the model will be ignored.
+</ParamField>
+
+<ParamField path="top_logprobs" type="integer">
+  An integer between 0 and 20 specifying the number of most likely tokens to return at each token position, each with an associated log probability.
+</ParamField>
+
+<ParamField path="include" type="array">
+  Specify additional output data to include in the model response. Currently supported values are:
+  
+  - `web_search_call.action.sources`: Include the sources of the web search tool call.
+  - `code_interpreter_call.outputs`: Includes the outputs of python code execution in code interpreter tool call items.
+  - `computer_call_output.output.image_url`: Include image urls from the computer call output.
+  - `file_search_call.results`: Include the search results of the file search tool call.
+  - `message.input_image.image_url`: Include image urls from the input message.
+  - `message.output_text.logprobs`: Include logprobs with assistant messages.
+  - `reasoning.encrypted_content`: Includes an encrypted version of reasoning tokens in reasoning item outputs.
+</ParamField>
+
+<ParamField path="context_management" type="array">
+  Context management configuration for this request.
+</ParamField>
+
+<ParamField path="stream_options" type="object">
+  Options for streaming responses. Only set this when you set `stream: true`.
+</ParamField>
+
+## Response Fields
+
+<ResponseField name="id" type="string">
+  Unique identifier for this Response.
+</ResponseField>
+
+<ResponseField name="object" type="string">
+  The object type of this resource - always set to `response`.
+</ResponseField>
+
+<ResponseField name="created_at" type="number">
+  Unix timestamp (in seconds) of when this Response was created.
+</ResponseField>
+
+<ResponseField name="model" type="string">
+  Model ID used to generate the response, like `gpt-4o` or `o3`.
+</ResponseField>
+
+<ResponseField name="output" type="array">
+  An array of content items generated by the model.
+  
+  The length and order of items in the `output` array is dependent on the model's response. Rather than accessing the first item in the `output` array and assuming it's an `assistant` message with the content generated by the model, you might consider using the `output_text` property where supported in SDKs.
+</ResponseField>
+
+<ResponseField name="output_text" type="string">
+  Convenience property that aggregates all `output_text` items from the `output` list. If no `output_text` content blocks exist, then an empty string is returned.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  The status of the response generation. One of `completed`, `failed`, `in_progress`, `cancelled`, `queued`, or `incomplete`.
+</ResponseField>
+
+<ResponseField name="usage" type="object">
+  Represents token usage details including input tokens, output tokens, a breakdown of output tokens, and the total tokens used.
+</ResponseField>
+
+<ResponseField name="temperature" type="number">
+  What sampling temperature to use, between 0 and 2.
+</ResponseField>
+
+<ResponseField name="top_p" type="number">
+  An alternative to sampling with temperature, called nucleus sampling.
+</ResponseField>
+
+<ResponseField name="tools" type="array">
+  An array of tools the model may call while generating a response.
+</ResponseField>
+
+<ResponseField name="tool_choice" type="object | string">
+  How the model should select which tool (or tools) to use when generating a response.
+</ResponseField>
+
+<ResponseField name="parallel_tool_calls" type="boolean">
+  Whether to allow the model to run tool calls in parallel.
+</ResponseField>
+
+<ResponseField name="completed_at" type="number">
+  Unix timestamp (in seconds) of when this Response was completed. Only present when the status is `completed`.
+</ResponseField>
+
+<ResponseField name="error" type="object">
+  An error object returned when the model fails to generate a Response.
+</ResponseField>
+
+<ResponseField name="incomplete_details" type="object">
+  Details about why the response is incomplete.
+</ResponseField>
+
+<ResponseField name="instructions" type="string | array">
+  A system (or developer) message inserted into the model's context.
+</ResponseField>
+
+<ResponseField name="metadata" type="object">
+  Set of 16 key-value pairs that can be attached to an object.
+</ResponseField>
+
+<ResponseField name="previous_response_id" type="string">
+  The unique ID of the previous response to the model.
+</ResponseField>
+
+<ResponseField name="conversation" type="object">
+  The conversation that this response belonged to.
+</ResponseField>
+
+<ResponseField name="text" type="object">
+  Configuration options for a text response from the model.
+</ResponseField>
+
+<ResponseField name="reasoning" type="object">
+  Configuration options for reasoning models.
+</ResponseField>
+
+<ResponseField name="prompt" type="object">
+  Reference to a prompt template and its variables.
+</ResponseField>
+
+<ResponseField name="prompt_cache_key" type="string">
+  Used by OpenAI to cache responses for similar requests.
+</ResponseField>
+
+<ResponseField name="prompt_cache_retention" type="string">
+  The retention policy for the prompt cache.
+</ResponseField>
+
+<ResponseField name="safety_identifier" type="string">
+  A stable identifier used to help detect users of your application that may be violating OpenAI's usage policies.
+</ResponseField>
+
+<ResponseField name="service_tier" type="string">
+  Specifies the processing type used for serving the request.
+</ResponseField>
+
+<ResponseField name="truncation" type="string">
+  The truncation strategy to use for the model response.
+</ResponseField>
+
+<ResponseField name="max_output_tokens" type="integer">
+  An upper bound for the number of tokens that can be generated for a response.
+</ResponseField>
+
+<ResponseField name="max_tool_calls" type="integer">
+  The maximum number of total calls to built-in tools that can be processed in a response.
+</ResponseField>
+
+<ResponseField name="top_logprobs" type="integer">
+  An integer between 0 and 20 specifying the number of most likely tokens to return at each token position.
+</ResponseField>
+
+<ResponseField name="background" type="boolean">
+  Whether to run the model response in the background.
+</ResponseField>
+
+## Examples
+
+### Basic Text Generation
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+response = client.responses.create(
+    model="gpt-5.2",
+    instructions="You are a coding assistant that talks like a pirate.",
+    input="How do I check if a Python object is an instance of a class?",
+)
+
+print(response.output_text)
+```
+
+### Vision with Image URL
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+prompt = "What is in this image?"
+img_url = "https://upload.wikimedia.org/wikipedia/commons/thumb/d/d5/2023_06_08_Raccoon1.jpg/1599px-2023_06_08_Raccoon1.jpg"
+
+response = client.responses.create(
+    model="gpt-5.2",
+    input=[
+        {
+            "role": "user",
+            "content": [
+                {"type": "input_text", "text": prompt},
+                {"type": "input_image", "image_url": f"{img_url}"},
+            ],
+        }
+    ],
+)
+
+print(response.output_text)
+```
+
+### Vision with Base64 Encoded Image
+
+```python
+import base64
+from openai import OpenAI
+
+client = OpenAI()
+
+prompt = "What is in this image?"
+with open("path/to/image.png", "rb") as image_file:
+    b64_image = base64.b64encode(image_file.read()).decode("utf-8")
+
+response = client.responses.create(
+    model="gpt-5.2",
+    input=[
+        {
+            "role": "user",
+            "content": [
+                {"type": "input_text", "text": prompt},
+                {"type": "input_image", "image_url": f"data:image/png;base64,{b64_image}"},
+            ],
+        }
+    ],
+)
+
+print(response.output_text)
+```
+
+### Async Usage
+
+```python
+import asyncio
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+
+async def main() -> None:
+    response = await client.responses.create(
+        model="gpt-5.2",
+        input="Explain disestablishmentarianism to a smart five year old."
+    )
+    print(response.output_text)
+
+asyncio.run(main())
+```
+
+## See Also
+
+- [Streaming Responses](/api/responses/stream) - Learn how to stream responses
+- [Text Inputs and Outputs Guide](https://platform.openai.com/docs/guides/text)
+- [Image Inputs Guide](https://platform.openai.com/docs/guides/images)
+- [Function Calling Guide](https://platform.openai.com/docs/guides/function-calling)
+- [Structured Outputs Guide](https://platform.openai.com/docs/guides/structured-outputs)

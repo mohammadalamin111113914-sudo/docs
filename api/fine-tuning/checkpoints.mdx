@@ -1,0 +1,283 @@
+---
+title: "Fine-tuning Checkpoints"
+description: "List and manage fine-tuning job checkpoints"
+---
+
+## List Checkpoints
+
+```python
+client.fine_tuning.jobs.checkpoints.list(
+    fine_tuning_job_id: str,
+    after: Optional[str] = None,
+    limit: Optional[int] = None
+) -> SyncCursorPage[FineTuningJobCheckpoint]
+```
+
+### Parameters
+
+<ParamField path="fine_tuning_job_id" type="str" required>
+  The ID of the fine-tuning job to list checkpoints for.
+</ParamField>
+
+<ParamField path="after" type="str">
+  A cursor for pagination. Identifier for the last checkpoint ID from the previous pagination request.
+</ParamField>
+
+<ParamField path="limit" type="int">
+  Number of checkpoints to retrieve per page.
+</ParamField>
+
+### Response
+
+Returns a paginated list of `FineTuningJobCheckpoint` objects:
+
+```python
+class FineTuningJobCheckpoint(BaseModel):
+    id: str  # Checkpoint identifier
+    created_at: int  # Unix timestamp when created
+    fine_tuned_model_checkpoint: str  # Checkpoint model name
+    fine_tuning_job_id: str  # Parent job ID
+    metrics: Metrics  # Training metrics at this step
+    object: Literal["fine_tuning.job.checkpoint"]  # Always "fine_tuning.job.checkpoint"
+    step_number: int  # Training step number
+
+class Metrics(BaseModel):
+    step: Optional[float]  # Training step
+    train_loss: Optional[float]  # Training loss
+    train_mean_token_accuracy: Optional[float]  # Training accuracy
+    valid_loss: Optional[float]  # Validation loss
+    valid_mean_token_accuracy: Optional[float]  # Validation accuracy
+    full_valid_loss: Optional[float]  # Full validation loss
+    full_valid_mean_token_accuracy: Optional[float]  # Full validation accuracy
+```
+
+## Examples
+
+### List All Checkpoints for a Job
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+checkpoints = client.fine_tuning.jobs.checkpoints.list(
+    fine_tuning_job_id="ftjob-abc123"
+)
+
+for checkpoint in checkpoints:
+    print(f"Step {checkpoint.step_number}: {checkpoint.fine_tuned_model_checkpoint}")
+    print(f"  Train Loss: {checkpoint.metrics.train_loss}")
+    print(f"  Valid Loss: {checkpoint.metrics.valid_loss}")
+    print()
+```
+
+### Find Best Checkpoint by Validation Loss
+
+```python
+checkpoints = client.fine_tuning.jobs.checkpoints.list(
+    fine_tuning_job_id="ftjob-abc123"
+)
+
+best_checkpoint = min(
+    checkpoints,
+    key=lambda c: c.metrics.valid_loss if c.metrics.valid_loss else float('inf')
+)
+
+print(f"Best checkpoint: {best_checkpoint.fine_tuned_model_checkpoint}")
+print(f"Validation loss: {best_checkpoint.metrics.valid_loss}")
+print(f"Step: {best_checkpoint.step_number}")
+```
+
+### Plot Training Progress
+
+```python
+import matplotlib.pyplot as plt
+
+checkpoints = client.fine_tuning.jobs.checkpoints.list(
+    fine_tuning_job_id="ftjob-abc123"
+)
+
+# Extract metrics
+steps = []
+train_losses = []
+valid_losses = []
+
+for checkpoint in checkpoints:
+    if checkpoint.metrics.train_loss is not None:
+        steps.append(checkpoint.step_number)
+        train_losses.append(checkpoint.metrics.train_loss)
+        valid_losses.append(checkpoint.metrics.valid_loss or 0)
+
+# Plot
+plt.figure(figsize=(10, 6))
+plt.plot(steps, train_losses, label='Training Loss', marker='o')
+plt.plot(steps, valid_losses, label='Validation Loss', marker='s')
+plt.xlabel('Step')
+plt.ylabel('Loss')
+plt.title('Fine-tuning Progress')
+plt.legend()
+plt.grid(True)
+plt.show()
+```
+
+### Monitor Checkpoint Metrics
+
+```python
+from datetime import datetime
+
+checkpoints = client.fine_tuning.jobs.checkpoints.list(
+    fine_tuning_job_id="ftjob-abc123"
+)
+
+print("Checkpoint Analysis")
+print("=" * 80)
+
+for checkpoint in checkpoints:
+    created = datetime.fromtimestamp(checkpoint.created_at)
+    metrics = checkpoint.metrics
+    
+    print(f"\nStep {checkpoint.step_number} - {created.strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"Model: {checkpoint.fine_tuned_model_checkpoint}")
+    
+    if metrics.train_loss is not None:
+        print(f"  Training Loss: {metrics.train_loss:.4f}")
+    if metrics.train_mean_token_accuracy is not None:
+        print(f"  Training Accuracy: {metrics.train_mean_token_accuracy:.4f}")
+    if metrics.valid_loss is not None:
+        print(f"  Validation Loss: {metrics.valid_loss:.4f}")
+    if metrics.valid_mean_token_accuracy is not None:
+        print(f"  Validation Accuracy: {metrics.valid_mean_token_accuracy:.4f}")
+```
+
+### Paginate Through Checkpoints
+
+```python
+# Get first page
+page = client.fine_tuning.jobs.checkpoints.list(
+    fine_tuning_job_id="ftjob-abc123",
+    limit=10
+)
+
+print("First 10 checkpoints:")
+for checkpoint in page.data:
+    print(f"  {checkpoint.step_number}: {checkpoint.metrics.train_loss}")
+
+# Get next page
+if page.data:
+    last_checkpoint_id = page.data[-1].id
+    next_page = client.fine_tuning.jobs.checkpoints.list(
+        fine_tuning_job_id="ftjob-abc123",
+        limit=10,
+        after=last_checkpoint_id
+    )
+    
+    print("\nNext 10 checkpoints:")
+    for checkpoint in next_page.data:
+        print(f"  {checkpoint.step_number}: {checkpoint.metrics.train_loss}")
+```
+
+### Auto-pagination
+
+```python
+# Automatically iterate through all checkpoints
+for checkpoint in client.fine_tuning.jobs.checkpoints.list("ftjob-abc123"):
+    print(f"Step {checkpoint.step_number}: Loss = {checkpoint.metrics.train_loss}")
+```
+
+### Export Checkpoint Data to CSV
+
+```python
+import csv
+
+checkpoints = client.fine_tuning.jobs.checkpoints.list(
+    fine_tuning_job_id="ftjob-abc123"
+)
+
+with open('checkpoints.csv', 'w', newline='') as csvfile:
+    writer = csv.writer(csvfile)
+    writer.writerow([
+        'Step', 'Model', 'Train Loss', 'Train Accuracy',
+        'Valid Loss', 'Valid Accuracy', 'Created At'
+    ])
+    
+    for checkpoint in checkpoints:
+        m = checkpoint.metrics
+        writer.writerow([
+            checkpoint.step_number,
+            checkpoint.fine_tuned_model_checkpoint,
+            m.train_loss,
+            m.train_mean_token_accuracy,
+            m.valid_loss,
+            m.valid_mean_token_accuracy,
+            checkpoint.created_at
+        ])
+
+print("Exported to checkpoints.csv")
+```
+
+### Use Specific Checkpoint for Inference
+
+```python
+# Get the checkpoint you want to use
+checkpoints = client.fine_tuning.jobs.checkpoints.list("ftjob-abc123")
+best_checkpoint = min(
+    checkpoints,
+    key=lambda c: c.metrics.valid_loss if c.metrics.valid_loss else float('inf')
+)
+
+# Use the checkpoint model for inference
+response = client.chat.completions.create(
+    model=best_checkpoint.fine_tuned_model_checkpoint,
+    messages=[
+        {"role": "user", "content": "Hello!"}
+    ]
+)
+
+print(response.choices[0].message.content)
+```
+
+## Async Usage
+
+```python
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+
+checkpoints = client.fine_tuning.jobs.checkpoints.list(
+    fine_tuning_job_id="ftjob-abc123"
+)
+
+async for checkpoint in checkpoints:
+    print(f"Step {checkpoint.step_number}: {checkpoint.metrics.train_loss}")
+```
+
+## Understanding Checkpoint Metrics
+
+### Training Metrics
+- **train_loss**: Loss computed on the training batch
+- **train_mean_token_accuracy**: Token-level accuracy on training data
+
+### Validation Metrics
+- **valid_loss**: Loss on validation set (if provided)
+- **valid_mean_token_accuracy**: Token-level accuracy on validation set
+- **full_valid_loss**: Loss computed on the full validation set
+- **full_valid_mean_token_accuracy**: Accuracy on the full validation set
+
+### Checkpoint Selection
+- Lower validation loss generally indicates better generalization
+- Monitor for overfitting: training loss decreasing while validation loss increases
+- Each checkpoint is a fully usable model that can be deployed
+
+## Notes
+
+- Checkpoints are created periodically during fine-tuning
+- Each checkpoint is a snapshot of the model at a specific training step
+- Checkpoint models can be used immediately for inference
+- Not all fine-tuning jobs produce checkpoints (depends on training duration)
+- Checkpoints are useful for:
+  - Monitoring training progress
+  - Selecting the best model based on validation metrics
+  - Recovering from overfitting by using an earlier checkpoint
+  - A/B testing different training stages
+- Use the checkpoint with the lowest validation loss for best results
+- Checkpoints consume storage but provide valuable model versioning

@@ -1,0 +1,362 @@
+---
+title: Helper Functions
+description: Utility functions and helpers in the OpenAI Python SDK
+---
+
+The OpenAI Python SDK provides several helper functions to simplify common tasks.
+
+## pydantic_function_tool()
+
+Convert a Pydantic model into a function tool for chat completions. This enables structured outputs with automatic schema generation.
+
+### Basic Usage
+
+```python
+from openai import OpenAI
+from openai.lib import pydantic_function_tool
+from pydantic import BaseModel
+
+class GetWeather(BaseModel):
+    """Get the current weather for a location"""
+    location: str
+    unit: str = "fahrenheit"
+
+client = OpenAI()
+
+completion = client.chat.completions.create(
+    model="gpt-4",
+    messages=[
+        {"role": "user", "content": "What's the weather in San Francisco?"}
+    ],
+    tools=[pydantic_function_tool(GetWeather)],
+)
+
+print(completion.choices[0].message.tool_calls)
+```
+
+### Function Signature
+
+```python
+def pydantic_function_tool(
+    model: type[pydantic.BaseModel],
+    *,
+    name: str | None = None,        # Inferred from class name by default
+    description: str | None = None, # Inferred from class docstring by default
+) -> ChatCompletionFunctionToolParam
+```
+
+### Parameters
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `model` | `type[BaseModel]` | Pydantic model to convert |
+| `name` | `str \| None` | Function name (defaults to class name) |
+| `description` | `str \| None` | Function description (defaults to class docstring) |
+
+### Custom Name and Description
+
+```python
+from openai.lib import pydantic_function_tool
+from pydantic import BaseModel
+
+class WeatherParams(BaseModel):
+    location: str
+    unit: str = "fahrenheit"
+
+tool = pydantic_function_tool(
+    WeatherParams,
+    name="get_weather",
+    description="Fetch current weather for a given location",
+)
+```
+
+### With Structured Outputs
+
+Combine with the `parse()` method for automatic response parsing:
+
+```python
+from openai import OpenAI
+from openai.lib import pydantic_function_tool
+from pydantic import BaseModel
+
+class CalendarEvent(BaseModel):
+    """Create a calendar event"""
+    name: str
+    date: str
+    participants: list[str]
+
+client = OpenAI()
+
+completion = client.chat.completions.create(
+    model="gpt-4",
+    messages=[
+        {"role": "user", "content": "Schedule a meeting with Alice and Bob tomorrow"}
+    ],
+    tools=[pydantic_function_tool(CalendarEvent)],
+)
+
+# Access parsed arguments
+for tool_call in completion.choices[0].message.tool_calls or []:
+    if hasattr(tool_call, 'parsed_arguments'):
+        event = tool_call.parsed_arguments  # Type: CalendarEvent
+        print(f"Event: {event.name}")
+        print(f"Participants: {event.participants}")
+```
+
+## file_from_path()
+
+Convert a file path to a format suitable for file upload APIs.
+
+### Basic Usage
+
+```python
+from openai import OpenAI, file_from_path
+
+client = OpenAI()
+
+# Upload a file
+file_obj = client.files.create(
+    file=file_from_path("training_data.jsonl"),
+    purpose="fine-tune",
+)
+
+print(f"Uploaded file ID: {file_obj.id}")
+```
+
+### Function Signature
+
+```python
+def file_from_path(path: str) -> FileTypes
+```
+
+Returns a tuple of `(filename, contents)` where:
+- `filename` is the base name of the file
+- `contents` is the file's bytes
+
+### Example with Path Objects
+
+```python
+from pathlib import Path
+from openai import OpenAI, file_from_path
+
+client = OpenAI()
+file_path = Path("data") / "training.jsonl"
+
+file_obj = client.files.create(
+    file=file_from_path(str(file_path)),
+    purpose="fine-tune",
+)
+```
+
+### Direct Path Usage
+
+You can also pass `Path` objects directly without using `file_from_path()`:
+
+```python
+from pathlib import Path
+from openai import OpenAI
+
+client = OpenAI()
+
+# Path objects are automatically handled
+file_obj = client.files.create(
+    file=Path("training_data.jsonl"),
+    purpose="fine-tune",
+)
+```
+
+## AssistantEventHandler
+
+<Warning>
+  The Assistants API is deprecated. Use the Responses API instead.
+</Warning>
+
+Event handler for streaming Assistant responses. This provides structured access to events during Assistant runs.
+
+### Basic Usage
+
+```python
+from openai import OpenAI
+from openai.lib import AssistantEventHandler
+
+class EventHandler(AssistantEventHandler):
+    def on_text_delta(self, delta, snapshot):
+        print(delta.value, end="", flush=True)
+    
+    def on_text_done(self, text):
+        print("\n")
+    
+    def on_tool_call_done(self, tool_call):
+        print(f"Tool call completed: {tool_call.type}")
+
+client = OpenAI()
+
+with client.beta.threads.runs.stream(
+    thread_id="thread_abc123",
+    assistant_id="asst_abc123",
+    event_handler=EventHandler(),
+) as stream:
+    stream.until_done()
+```
+
+### Available Methods
+
+Override these methods to handle specific events:
+
+```python
+class MyEventHandler(AssistantEventHandler):
+    def on_text_delta(self, delta: TextDelta, snapshot: Text):
+        """Handle text delta events"""
+        pass
+    
+    def on_text_done(self, text: Text):
+        """Handle text completion"""
+        pass
+    
+    def on_image_file_done(self, image_file: ImageFile):
+        """Handle image file completion"""
+        pass
+    
+    def on_tool_call_delta(self, delta: ToolCallDelta, snapshot: ToolCall):
+        """Handle tool call delta events"""
+        pass
+    
+    def on_tool_call_done(self, tool_call: ToolCall):
+        """Handle tool call completion"""
+        pass
+    
+    def on_message_delta(self, delta: MessageDelta, snapshot: Message):
+        """Handle message delta events"""
+        pass
+    
+    def on_message_done(self, message: Message):
+        """Handle message completion"""
+        pass
+    
+    def on_run_step_delta(self, delta: RunStepDelta, snapshot: RunStep):
+        """Handle run step delta events"""
+        pass
+    
+    def on_run_step_done(self, run_step: RunStep):
+        """Handle run step completion"""
+        pass
+    
+    def on_event(self, event: AssistantStreamEvent):
+        """Handle any event"""
+        pass
+```
+
+### Text Deltas Iterator
+
+Access just the text deltas:
+
+```python
+from openai import OpenAI
+from openai.lib import AssistantEventHandler
+
+client = OpenAI()
+event_handler = AssistantEventHandler()
+
+with client.beta.threads.runs.stream(
+    thread_id="thread_abc123",
+    assistant_id="asst_abc123",
+    event_handler=event_handler,
+) as stream:
+    for text_delta in event_handler.text_deltas:
+        print(text_delta, end="", flush=True)
+    print()
+```
+
+### Properties
+
+Access current state during streaming:
+
+```python
+class MyEventHandler(AssistantEventHandler):
+    def on_event(self, event):
+        # Current event being processed
+        print(self.current_event)
+        
+        # Current run
+        print(self.current_run)
+        
+        # Current run step snapshot
+        print(self.current_run_step_snapshot)
+        
+        # Current message snapshot
+        print(self.current_message_snapshot)
+```
+
+## AsyncAssistantEventHandler
+
+Async version of `AssistantEventHandler`:
+
+```python
+import asyncio
+from openai import AsyncOpenAI
+from openai.lib import AsyncAssistantEventHandler
+
+class EventHandler(AsyncAssistantEventHandler):
+    async def on_text_delta(self, delta, snapshot):
+        print(delta.value, end="", flush=True)
+    
+    async def on_text_done(self, text):
+        print("\n")
+
+async def main():
+    client = AsyncOpenAI()
+    
+    async with client.beta.threads.runs.stream(
+        thread_id="thread_abc123",
+        assistant_id="asst_abc123",
+        event_handler=EventHandler(),
+    ) as stream:
+        await stream.until_done()
+
+asyncio.run(main())
+```
+
+## Additional Utilities
+
+### Model Serialization
+
+Convert Pydantic models to JSON:
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+completion = client.chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+
+# Serialize to JSON string
+json_str = completion.to_json()
+print(json_str)
+
+# Serialize to dictionary
+data_dict = completion.to_dict()
+print(data_dict)
+```
+
+### Type Checking
+
+The SDK provides full type hints for all methods and models:
+
+```python
+from openai import OpenAI
+from openai.types.chat import ChatCompletion
+
+client = OpenAI()
+
+# Type is inferred as ChatCompletion
+completion: ChatCompletion = client.chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+
+# Full autocomplete and type checking in your editor
+print(completion.choices[0].message.content)
+```

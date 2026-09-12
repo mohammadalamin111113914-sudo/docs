@@ -1,0 +1,200 @@
+---
+title: "Upload File"
+description: "Upload a file for use with various OpenAI endpoints"
+---
+
+## Method Signature
+
+```python
+client.files.create(
+    file: FileTypes,
+    purpose: FilePurpose,
+    expires_after: Optional[ExpiresAfter] = None
+) -> FileObject
+```
+
+## Parameters
+
+<ParamField path="file" type="FileTypes" required>
+  The File object (not file name) to be uploaded. This should be a file-like object opened in binary mode.
+
+  **Size limits:**
+  - Individual files: up to 512 MB
+  - Per project: up to 2.5 TB total
+  - No organization-wide limit
+</ParamField>
+
+<ParamField path="purpose" type="FilePurpose" required>
+  The intended purpose of the uploaded file. Must be one of:
+
+  - `assistants` - Used in the Assistants API
+  - `batch` - Used in the Batch API
+  - `fine-tune` - Used for fine-tuning (`.jsonl` files only)
+  - `vision` - Images used for vision fine-tuning
+  - `user_data` - Flexible file type for any purpose
+  - `evals` - Used for eval data sets
+
+  **Purpose-specific requirements:**
+  - **Assistants API**: Files up to 2 million tokens, specific file types only
+  - **Fine-tuning API**: Only `.jsonl` files with specific formats for [chat](https://platform.openai.com/docs/api-reference/fine-tuning/chat-input) or [completions](https://platform.openai.com/docs/api-reference/fine-tuning/completions-input)
+  - **Batch API**: Only `.jsonl` files up to 200 MB with [specific format](https://platform.openai.com/docs/api-reference/batch/request-input)
+</ParamField>
+
+<ParamField path="expires_after" type="ExpiresAfter">
+  The expiration policy for the file.
+
+  **Default behavior:**
+  - Files with `purpose=batch`: expire after 30 days
+  - All other files: persisted until manually deleted
+
+  ```python
+  {
+      "anchor": "created_at",  # Only supported anchor
+      "seconds": 3600  # Between 3600 (1 hour) and 2592000 (30 days)
+  }
+  ```
+</ParamField>
+
+## Response
+
+Returns a `FileObject`:
+
+```python
+class FileObject(BaseModel):
+    id: str  # File identifier
+    bytes: int  # File size in bytes
+    created_at: int  # Unix timestamp
+    filename: str  # Original file name
+    object: Literal["file"]  # Always "file"
+    purpose: str  # File purpose
+    status: Literal["uploaded", "processed", "error"]  # Processing status
+    expires_at: Optional[int]  # Unix timestamp when file expires
+    status_details: Optional[str]  # Error details if status is "error"
+```
+
+## Examples
+
+### Upload Training File for Fine-tuning
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+# Upload a JSONL file for fine-tuning
+with open("training_data.jsonl", "rb") as file:
+    response = client.files.create(
+        file=file,
+        purpose="fine-tune"
+    )
+
+print(f"File ID: {response.id}")
+print(f"File size: {response.bytes} bytes")
+print(f"Status: {response.status}")
+```
+
+### Upload File for Assistants
+
+```python
+with open("knowledge_base.pdf", "rb") as file:
+    response = client.files.create(
+        file=file,
+        purpose="assistants"
+    )
+
+print(f"Uploaded: {response.filename}")
+print(f"File ID: {response.id}")
+```
+
+### Upload Batch File with Expiration
+
+```python
+with open("batch_requests.jsonl", "rb") as file:
+    response = client.files.create(
+        file=file,
+        purpose="batch",
+        expires_after={
+            "anchor": "created_at",
+            "seconds": 86400  # Expire after 1 day
+        }
+    )
+
+print(f"File expires at: {response.expires_at}")
+```
+
+### Upload from Path Using Pathlib
+
+```python
+from pathlib import Path
+
+file_path = Path("data/training.jsonl")
+
+with file_path.open("rb") as file:
+    response = client.files.create(
+        file=file,
+        purpose="fine-tune"
+    )
+```
+
+### Wait for File Processing
+
+```python
+with open("data.jsonl", "rb") as file:
+    uploaded_file = client.files.create(
+        file=file,
+        purpose="fine-tune"
+    )
+
+# Wait for the file to be processed (30 min timeout by default)
+processed_file = client.files.wait_for_processing(
+    uploaded_file.id,
+    poll_interval=5.0,  # Check every 5 seconds
+    max_wait_seconds=1800  # Wait up to 30 minutes
+)
+
+if processed_file.status == "processed":
+    print("File is ready to use!")
+else:
+    print(f"File processing failed: {processed_file.status_details}")
+```
+
+## Async Usage
+
+```python
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+
+with open("training_data.jsonl", "rb") as file:
+    response = await client.files.create(
+        file=file,
+        purpose="fine-tune"
+    )
+
+# Wait for processing asynchronously
+processed_file = await client.files.wait_for_processing(response.id)
+```
+
+## File Format Requirements
+
+### Fine-tuning (JSONL)
+
+```jsonl
+{"messages": [{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": "Hello!"}, {"role": "assistant", "content": "Hi there!"}]}
+{"messages": [{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": "How are you?"}, {"role": "assistant", "content": "I'm doing well!"}]}
+```
+
+### Batch API (JSONL)
+
+```jsonl
+{"custom_id": "request-1", "method": "POST", "url": "/v1/chat/completions", "body": {"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "Hello!"}]}}
+{"custom_id": "request-2", "method": "POST", "url": "/v1/chat/completions", "body": {"model": "gpt-4o-mini", "messages": [{"role": "user", "content": "How are you?"}]}}
+```
+
+## Notes
+
+- Files are uploaded using `multipart/form-data` encoding
+- The file parameter must be a file object, not a file path string
+- Always open files in binary mode (`"rb"`)
+- Use [context managers](https://docs.python.org/3/reference/compound_stmts.html#with) (`with` statement) to ensure files are properly closed
+- Contact [OpenAI support](https://help.openai.com/) to increase storage limits

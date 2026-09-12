@@ -1,0 +1,165 @@
+---
+title: "Create Vector Store"
+api: "POST https://api.openai.com/v1/vector_stores"
+---
+
+Create a vector store.
+
+## Request Body
+
+<ParamField body="name" type="string">
+  The name of the vector store.
+</ParamField>
+
+<ParamField body="file_ids" type="array">
+  A list of [File](/api-reference/files) IDs that the vector store should use. Useful for tools like `file_search` that can access files.
+</ParamField>
+
+<ParamField body="description" type="string">
+  A description for the vector store. Can be used to describe the vector store's purpose.
+</ParamField>
+
+<ParamField body="expires_after" type="object">
+  The expiration policy for a vector store.
+  
+  <Expandable title="properties">
+    <ParamField body="anchor" type="string" required>
+      Anchor timestamp after which the expiration policy applies. Supported anchors: `last_active_at`.
+    </ParamField>
+    
+    <ParamField body="days" type="integer" required>
+      The number of days after the anchor time that the vector store will expire.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="chunking_strategy" type="object">
+  The chunking strategy used to chunk the file(s). If not set, will use the `auto` strategy. Only applicable if `file_ids` is non-empty.
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Set of 16 key-value pairs that can be attached to an object. This can be useful for storing additional information about the object in a structured format.
+  
+  Keys are strings with a maximum length of 64 characters. Values are strings with a maximum length of 512 characters.
+</ParamField>
+
+## Response
+
+Returns a `VectorStore` object.
+
+<ResponseField name="id" type="string">
+  The identifier, which can be referenced in API endpoints.
+</ResponseField>
+
+<ResponseField name="object" type="string">
+  The object type, always `vector_store`.
+</ResponseField>
+
+<ResponseField name="name" type="string">
+  The name of the vector store.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  The status of the vector store. One of:
+  - `expired`
+  - `in_progress`
+  - `completed`
+</ResponseField>
+
+<ResponseField name="file_counts" type="object">
+  Counts of files by status.
+  
+  <Expandable title="properties">
+    <ResponseField name="in_progress" type="integer">
+      The number of files that are currently being processed.
+    </ResponseField>
+    
+    <ResponseField name="completed" type="integer">
+      The number of files that have been successfully processed.
+    </ResponseField>
+    
+    <ResponseField name="failed" type="integer">
+      The number of files that have failed to process.
+    </ResponseField>
+    
+    <ResponseField name="cancelled" type="integer">
+      The number of files that were cancelled.
+    </ResponseField>
+    
+    <ResponseField name="total" type="integer">
+      The total number of files.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="created_at" type="integer">
+  The Unix timestamp (in seconds) for when the vector store was created.
+</ResponseField>
+
+<ResponseField name="usage_bytes" type="integer">
+  The total number of bytes used by the files in the vector store.
+</ResponseField>
+
+<RequestExample>
+```python Python
+from openai import OpenAI
+client = OpenAI()
+
+vector_store = client.beta.vector_stores.create(
+    name="Product Documentation",
+    file_ids=["file-abc123", "file-abc456"],
+    metadata={"project": "customer_support"}
+)
+
+print(vector_store.id)
+```
+
+```javascript Node.js
+import OpenAI from "openai";
+const openai = new OpenAI();
+
+const vectorStore = await openai.beta.vectorStores.create({
+  name: "Product Documentation",
+  file_ids: ["file-abc123", "file-abc456"],
+  metadata: { project: "customer_support" }
+});
+
+console.log(vectorStore.id);
+```
+
+```bash cURL
+curl https://api.openai.com/v1/vector_stores \\
+  -H "Authorization: Bearer $OPENAI_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "OpenAI-Beta: assistants=v2" \\
+  -d '{
+    "name": "Product Documentation",
+    "file_ids": ["file-abc123", "file-abc456"]
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "id": "vs_abc123",
+  "object": "vector_store",
+  "name": "Product Documentation",
+  "status": "in_progress",
+  "usage_bytes": 0,
+  "created_at": 1699061776,
+  "file_counts": {
+    "in_progress": 2,
+    "completed": 0,
+    "failed": 0,
+    "cancelled": 0,
+    "total": 2
+  },
+  "metadata": {
+    "project": "customer_support"
+  },
+  "expires_after": null,
+  "expires_at": null
+}
+```
+</ResponseExample>

@@ -1,0 +1,209 @@
+---
+title: "Running Assistants"
+api: "POST https://api.openai.com/v1/threads/{thread_id}/runs"
+---
+
+<Warning>
+  The Assistants API is deprecated in favor of the Responses API.
+</Warning>
+
+Create a run to execute an assistant on a thread.
+
+## Path Parameters
+
+<ParamField path="thread_id" type="string" required>
+  The ID of the thread to run.
+</ParamField>
+
+## Request Body
+
+<ParamField body="assistant_id" type="string" required>
+  The ID of the assistant to use to execute this run.
+</ParamField>
+
+<ParamField body="model" type="string">
+  The ID of the Model to be used to execute this run. If a value is provided here, it will override the model associated with the assistant. If not, the model associated with the assistant will be used.
+</ParamField>
+
+<ParamField body="instructions" type="string">
+  Overrides the instructions of the assistant. This is useful for modifying the behavior on a per-run basis.
+</ParamField>
+
+<ParamField body="additional_instructions" type="string">
+  Appends additional instructions at the end of the instructions for the run. This is useful for modifying the behavior on a per-run basis without overriding other instructions.
+</ParamField>
+
+<ParamField body="additional_messages" type="array">
+  Adds additional messages to the thread before creating the run.
+</ParamField>
+
+<ParamField body="tools" type="array">
+  Override the tools the assistant can use for this run. This is useful for modifying the behavior on a per-run basis.
+</ParamField>
+
+<ParamField body="metadata" type="object">
+  Set of 16 key-value pairs that can be attached to an object.
+  
+  Keys are strings with a maximum length of 64 characters. Values are strings with a maximum length of 512 characters.
+</ParamField>
+
+<ParamField body="temperature" type="number">
+  What sampling temperature to use, between 0 and 2. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic.
+</ParamField>
+
+<ParamField body="max_prompt_tokens" type="integer">
+  The maximum number of prompt tokens that may be used over the course of the run. The run will make a best effort to use only the number of prompt tokens specified, across multiple turns of the run. If the run exceeds the number of prompt tokens specified, the run will end with status `incomplete`.
+</ParamField>
+
+<ParamField body="max_completion_tokens" type="integer">
+  The maximum number of completion tokens that may be used over the course of the run. The run will make a best effort to use only the number of completion tokens specified, across multiple turns of the run. If the run exceeds the number of completion tokens specified, the run will end with status `incomplete`.
+</ParamField>
+
+<ParamField body="stream" type="boolean">
+  If `true`, returns a stream of events that happen during the Run as server-sent events, terminating when the Run enters a terminal state with a `data: [DONE]` message.
+</ParamField>
+
+## Response
+
+Returns a `Run` object.
+
+<ResponseField name="id" type="string">
+  The run identifier.
+</ResponseField>
+
+<ResponseField name="object" type="string">
+  The object type, always `thread.run`.
+</ResponseField>
+
+<ResponseField name="created_at" type="integer">
+  The Unix timestamp (in seconds) for when the run was created.
+</ResponseField>
+
+<ResponseField name="thread_id" type="string">
+  The ID of the thread that was executed on as a part of this run.
+</ResponseField>
+
+<ResponseField name="assistant_id" type="string">
+  The ID of the assistant used for execution of this run.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  The status of the run. One of:
+  - `queued`
+  - `in_progress`
+  - `requires_action`
+  - `cancelling`
+  - `cancelled`
+  - `failed`
+  - `completed`
+  - `expired`
+</ResponseField>
+
+<ResponseField name="model" type="string">
+  The model that the assistant used for this run.
+</ResponseField>
+
+<ResponseField name="instructions" type="string">
+  The instructions that the assistant used for this run.
+</ResponseField>
+
+## Retrieve Run
+
+`GET https://api.openai.com/v1/threads/{thread_id}/runs/{run_id}`
+
+Retrieves a run.
+
+## List Runs
+
+`GET https://api.openai.com/v1/threads/{thread_id}/runs`
+
+Returns a list of runs belonging to a thread.
+
+## Cancel Run
+
+`POST https://api.openai.com/v1/threads/{thread_id}/runs/{run_id}/cancel`
+
+Cancels a run that is `in_progress`.
+
+<RequestExample>
+```python Python
+from openai import OpenAI
+client = OpenAI()
+
+# Create and run
+run = client.beta.threads.runs.create(
+    thread_id="thread_abc123",
+    assistant_id="asst_abc123"
+)
+
+print(run.id, run.status)
+
+# Retrieve run status
+run = client.beta.threads.runs.retrieve(
+    thread_id="thread_abc123",
+    run_id=run.id
+)
+
+print(run.status)
+```
+
+```javascript Node.js
+import OpenAI from "openai";
+const openai = new OpenAI();
+
+// Create and run
+let run = await openai.beta.threads.runs.create(
+  "thread_abc123",
+  {
+    assistant_id: "asst_abc123"
+  }
+);
+
+console.log(run.id, run.status);
+
+// Retrieve run status
+run = await openai.beta.threads.runs.retrieve(
+  "thread_abc123",
+  run.id
+);
+
+console.log(run.status);
+```
+
+```bash cURL
+curl https://api.openai.com/v1/threads/thread_abc123/runs \\
+  -H "Authorization: Bearer $OPENAI_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "OpenAI-Beta: assistants=v2" \\
+  -d '{
+    "assistant_id": "asst_abc123"
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "id": "run_abc123",
+  "object": "thread.run",
+  "created_at": 1699063290,
+  "thread_id": "thread_abc123",
+  "assistant_id": "asst_abc123",
+  "status": "queued",
+  "started_at": 1699063290,
+  "model": "gpt-4o",
+  "instructions": "You are a personal math tutor.",
+  "tools": [
+    {
+      "type": "code_interpreter"
+    }
+  ],
+  "metadata": {},
+  "usage": null,
+  "temperature": 1.0,
+  "top_p": 1.0,
+  "max_prompt_tokens": 1000,
+  "max_completion_tokens": 1000
+}
+```
+</ResponseExample>

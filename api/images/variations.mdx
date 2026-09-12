@@ -1,0 +1,127 @@
+---
+title: "Image Variations"
+api: "POST /images/variations"
+---
+
+Creates a variation of a given image.
+
+This endpoint only supports `dall-e-2`.
+
+## Method Signature
+
+```python
+client.images.create_variation(
+    image=open("image.png", "rb"),
+    n=2,
+    size="1024x1024"
+)
+```
+
+## Parameters
+
+<ParamField path="image" type="file" required>
+  The image to use as the basis for the variation(s). Must be a valid PNG file, less than 4MB, and square.
+</ParamField>
+
+<ParamField path="model" type="string">
+  The model to use for image generation. Only `dall-e-2` is supported at this time.
+</ParamField>
+
+<ParamField path="n" type="integer">
+  The number of images to generate. Must be between 1 and 10.
+</ParamField>
+
+<ParamField path="response_format" type="string">
+  The format in which the generated images are returned. Must be one of `url` or `b64_json`. URLs are only valid for 60 minutes after the image has been generated.
+</ParamField>
+
+<ParamField path="size" type="string">
+  The size of the generated images. Must be one of:
+  - `256x256`
+  - `512x512`
+  - `1024x1024`
+</ParamField>
+
+<ParamField path="user" type="string">
+  A unique identifier representing your end-user, which can help OpenAI to monitor and detect abuse. [Learn more](https://platform.openai.com/docs/guides/safety-best-practices#end-user-ids).
+</ParamField>
+
+## Returns
+
+Returns an `ImagesResponse` object containing the image variations.
+
+<ResponseField name="created" type="integer">
+  The Unix timestamp (in seconds) of when the image was created.
+</ResponseField>
+
+<ResponseField name="data" type="array">
+  The list of generated images.
+  
+  <Expandable title="Image object">
+    <ResponseField name="url" type="string">
+      The URL of the generated image (when `response_format=url`). URLs are only valid for 60 minutes.
+    </ResponseField>
+    
+    <ResponseField name="b64_json" type="string">
+      The base64-encoded JSON of the generated image (when `response_format=b64_json`).
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Examples
+
+### Create variations with URL response
+
+```python
+from openai import OpenAI
+client = OpenAI()
+
+response = client.images.create_variation(
+    image=open("image.png", "rb"),
+    n=3,
+    size="1024x1024"
+)
+
+for i, image in enumerate(response.data):
+    print(f"Variation {i + 1}: {image.url}")
+```
+
+### Create variations with base64 response
+
+```python
+import base64
+from openai import OpenAI
+
+client = OpenAI()
+
+response = client.images.create_variation(
+    image=open("original.png", "rb"),
+    n=2,
+    size="512x512",
+    response_format="b64_json"
+)
+
+for i, image in enumerate(response.data):
+    image_data = base64.b64decode(image.b64_json)
+    with open(f"variation_{i}.png", "wb") as f:
+        f.write(image_data)
+    print(f"Saved variation_{i}.png")
+```
+
+### Multiple smaller variations
+
+```python
+from openai import OpenAI
+client = OpenAI()
+
+# Generate 10 small variations for quick preview
+response = client.images.create_variation(
+    image=open("source.png", "rb"),
+    n=10,
+    size="256x256"
+)
+
+print(f"Generated {len(response.data)} variations")
+for i, image in enumerate(response.data):
+    print(f"Variation {i + 1}: {image.url}")
+```

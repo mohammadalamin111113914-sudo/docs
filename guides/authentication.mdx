@@ -1,0 +1,167 @@
+---
+title: Authentication
+description: Set up API keys and authenticate with the OpenAI Python SDK
+---
+
+The OpenAI Python SDK requires authentication using an API key. This guide covers how to set up authentication for both OpenAI and Azure OpenAI.
+
+## OpenAI API Key
+
+### Environment Variable (Recommended)
+
+The most secure way to provide your API key is through the `OPENAI_API_KEY` environment variable:
+
+```bash
+export OPENAI_API_KEY="sk-proj-..."
+```
+
+The client will automatically read this variable:
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+# API key is read from OPENAI_API_KEY environment variable
+```
+
+### Using python-dotenv
+
+For local development, use [python-dotenv](https://pypi.org/project/python-dotenv/) to load your API key from a `.env` file:
+
+<Steps>
+  <Step title="Install python-dotenv">
+    ```bash
+    pip install python-dotenv
+    ```
+  </Step>
+  
+  <Step title="Create .env file">
+    Create a `.env` file in your project root:
+    
+    ```bash
+    OPENAI_API_KEY="sk-proj-..."
+    ```
+    
+    <Warning>
+      Add `.env` to your `.gitignore` to avoid committing your API key to version control.
+    </Warning>
+  </Step>
+  
+  <Step title="Load environment variables">
+    ```python
+    import os
+    from dotenv import load_dotenv
+    from openai import OpenAI
+    
+    load_dotenv()  # Load variables from .env
+    
+    client = OpenAI()
+    # API key is now loaded from .env file
+    ```
+  </Step>
+</Steps>
+
+### Direct API Key (Not Recommended)
+
+You can pass the API key directly, but this is not recommended for production:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="sk-proj-...",  # Not recommended
+)
+```
+
+<Warning>
+  Never hardcode API keys in your source code or commit them to version control.
+</Warning>
+
+### Get an API Key
+
+You can obtain an API key from the [OpenAI Platform](https://platform.openai.com/settings/organization/api-keys).
+
+## Azure OpenAI Authentication
+
+Azure OpenAI supports two authentication methods: API keys and Azure Active Directory (Azure AD).
+
+### API Key Authentication
+
+Use the `AZURE_OPENAI_API_KEY` environment variable:
+
+```bash
+export AZURE_OPENAI_API_KEY="your-azure-key"
+export AZURE_OPENAI_ENDPOINT="https://example-endpoint.openai.azure.com"
+export OPENAI_API_VERSION="2023-07-01-preview"
+```
+
+Then create the client:
+
+```python
+from openai import AzureOpenAI
+
+client = AzureOpenAI(
+    api_version="2023-07-01-preview",
+    azure_endpoint="https://example-endpoint.openai.azure.com",
+)
+```
+
+### Azure Active Directory (Azure AD)
+
+For enhanced security, use Azure AD tokens:
+
+```python
+from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+from openai import AzureOpenAI
+
+token_provider = get_bearer_token_provider(
+    DefaultAzureCredential(),
+    "https://cognitiveservices.azure.com/.default"
+)
+
+client = AzureOpenAI(
+    api_version="2023-07-01-preview",
+    azure_endpoint="https://example-endpoint.openai.azure.com",
+    azure_ad_token_provider=token_provider,
+)
+```
+
+See the [Azure OpenAI guide](/guides/azure-openai) for more details on Azure authentication.
+
+## Organization and Project IDs
+
+You can optionally specify organization and project IDs:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    organization="org-...",  # Optional
+    project="proj_...",      # Optional
+)
+```
+
+These can also be set via environment variables:
+
+```bash
+export OPENAI_ORG_ID="org-..."
+export OPENAI_PROJECT_ID="proj_..."
+```
+
+## Callable API Keys
+
+For advanced use cases where you need to refresh tokens, you can pass a callable that returns the API key:
+
+```python
+from openai import OpenAI
+
+def get_api_key() -> str:
+    # Fetch or refresh your API key
+    return "sk-proj-..."
+
+client = OpenAI(
+    api_key=get_api_key,
+)
+```
+
+The function will be called for each request to get the current API key.

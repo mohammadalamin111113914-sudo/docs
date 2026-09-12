@@ -1,0 +1,187 @@
+---
+title: "List Files"
+description: "Returns a list of files belonging to the user's organization"
+---
+
+## Method Signature
+
+```python
+client.files.list(
+    after: Optional[str] = None,
+    limit: Optional[int] = None,
+    order: Literal["asc", "desc"] = "desc",
+    purpose: Optional[str] = None
+) -> SyncCursorPage[FileObject]
+```
+
+## Parameters
+
+<ParamField path="after" type="str">
+  A cursor for use in pagination. `after` is an object ID that defines your place in the list.
+
+  For instance, if you make a list request and receive 100 objects ending with `obj_foo`, your subsequent call can include `after=obj_foo` to fetch the next page of the list.
+</ParamField>
+
+<ParamField path="limit" type="int" default="10000">
+  A limit on the number of objects to be returned.
+
+  - Range: 1 to 10,000
+  - Default: 10,000
+</ParamField>
+
+<ParamField path="order" type="Literal['asc', 'desc']" default="desc">
+  Sort order by the `created_at` timestamp of the objects.
+
+  - `asc` - Ascending order (oldest first)
+  - `desc` - Descending order (newest first)
+</ParamField>
+
+<ParamField path="purpose" type="str">
+  Only return files with the given purpose.
+
+  Valid purposes:
+  - `assistants`
+  - `batch`
+  - `fine-tune`
+  - `vision`
+  - `user_data`
+  - `evals`
+</ParamField>
+
+## Response
+
+Returns a paginated list of `FileObject` instances.
+
+```python
+class FileObject(BaseModel):
+    id: str  # File identifier
+    bytes: int  # File size in bytes
+    created_at: int  # Unix timestamp
+    filename: str  # Original file name
+    object: Literal["file"]  # Always "file"
+    purpose: str  # File purpose
+    status: Literal["uploaded", "processed", "error"]  # Processing status
+    expires_at: Optional[int]  # Unix timestamp when file expires
+```
+
+## Examples
+
+### List All Files
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+files = client.files.list()
+
+for file in files:
+    print(f"{file.id}: {file.filename} ({file.purpose})")
+```
+
+### List Fine-tuning Files Only
+
+```python
+files = client.files.list(purpose="fine-tune")
+
+for file in files:
+    print(f"{file.filename} - {file.bytes} bytes")
+```
+
+### Paginate Through Files
+
+```python
+# Get first page
+page = client.files.list(limit=10)
+
+for file in page:
+    print(file.filename)
+
+# Get next page using the last file ID as cursor
+if page.data:
+    last_file_id = page.data[-1].id
+    next_page = client.files.list(limit=10, after=last_file_id)
+    
+    for file in next_page:
+        print(file.filename)
+```
+
+### List Files in Ascending Order
+
+```python
+files = client.files.list(order="asc", limit=20)
+
+for file in files:
+    print(f"{file.created_at}: {file.filename}")
+```
+
+### Auto-pagination
+
+```python
+# Automatically iterate through all pages
+for file in client.files.list():
+    print(f"{file.id}: {file.filename}")
+    # This will automatically fetch next pages as needed
+```
+
+### Filter and Process Files
+
+```python
+from datetime import datetime
+
+files = client.files.list(purpose="fine-tune")
+
+for file in files:
+    created_date = datetime.fromtimestamp(file.created_at)
+    size_mb = file.bytes / (1024 * 1024)
+    
+    print(f"File: {file.filename}")
+    print(f"  Created: {created_date}")
+    print(f"  Size: {size_mb:.2f} MB")
+    print(f"  Status: {file.status}")
+    print()
+```
+
+## Async Usage
+
+```python
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+
+# List files asynchronously
+files = client.files.list(purpose="assistants")
+
+async for file in files:
+    print(f"{file.filename}: {file.status}")
+```
+
+## Pagination Details
+
+The `list()` method returns a `SyncCursorPage` object that supports:
+
+- **Iteration**: Automatically fetches pages as you iterate
+- **Manual pagination**: Use `after` parameter with the last object ID
+- **Page size control**: Use `limit` to control how many objects per page
+
+```python
+page = client.files.list(limit=5)
+
+# Check if there are more pages
+print(f"Has more: {page.has_next_page()}")
+
+# Access the data directly
+print(f"Files in this page: {len(page.data)}")
+
+# Get next page
+if page.has_next_page():
+    next_page = page.get_next_page()
+```
+
+## Notes
+
+- Default limit is 10,000 files per request
+- Files are sorted by `created_at` timestamp
+- Use pagination for large file lists to avoid memory issues
+- The response includes all file metadata except the actual file contents
+- Use the [retrieve content](/api/files/retrieve) endpoint to download file contents

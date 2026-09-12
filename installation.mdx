@@ -1,0 +1,259 @@
+---
+title: Installation
+description: Install the OpenAI Python SDK and configure your environment
+---
+
+This guide will help you install the OpenAI Python SDK and set up your development environment.
+
+## Requirements
+
+Before installing the SDK, ensure you have:
+
+- **Python 3.9 or higher** - Check your version with `python --version`
+- **pip** - Python's package installer (comes with Python)
+- **OpenAI API key** - [Get one here](https://platform.openai.com/settings/organization/api-keys)
+
+## Basic Installation
+
+Install the OpenAI SDK from PyPI using pip:
+
+```bash
+pip install openai
+```
+
+This installs the core SDK with all essential dependencies:
+
+- `httpx` - HTTP client for API requests
+- `pydantic` - Data validation and type definitions
+- `typing-extensions` - Type hint extensions
+- `anyio` - Async I/O support
+- `distro` - OS distribution detection
+- `tqdm` - Progress bar support
+- `jiter` - Fast JSON parsing
+
+## Optional Dependencies
+
+The SDK provides several optional dependency groups for extended functionality:
+
+### Realtime API
+
+For low-latency WebSocket connections with the Realtime API:
+
+```bash
+pip install openai[realtime]
+```
+
+This adds:
+- `websockets` (>= 13, < 16) - WebSocket client for realtime connections
+
+<Info>
+The Realtime API enables multi-modal conversational experiences with text and audio support.
+</Info>
+
+### Data Libraries
+
+For working with data analysis and pandas DataFrames:
+
+```bash
+pip install openai[datalib]
+```
+
+This adds:
+- `numpy` (>= 1) - Numerical computing
+- `pandas` (>= 1.2.3) - Data manipulation
+- `pandas-stubs` (>= 1.1.0.11) - Type stubs for pandas
+
+### Voice Helpers
+
+For audio input/output with the Realtime API:
+
+```bash
+pip install openai[voice_helpers]
+```
+
+This adds:
+- `sounddevice` (>= 0.5.1) - Audio I/O
+- `numpy` (>= 2.0.2) - Audio data processing
+
+<Tip>
+Voice helpers are particularly useful when building interactive voice applications with the Realtime API.
+</Tip>
+
+### Aiohttp (Async Performance)
+
+For improved async performance with `aiohttp` as the HTTP backend:
+
+```bash
+pip install openai[aiohttp]
+```
+
+This adds:
+- `aiohttp` - Alternative async HTTP client
+- `httpx_aiohttp` (>= 0.1.9) - Aiohttp integration for httpx
+
+To use aiohttp, instantiate the async client with `DefaultAioHttpClient()`:
+
+```python
+import asyncio
+from openai import AsyncOpenAI, DefaultAioHttpClient
+
+async def main():
+    async with AsyncOpenAI(
+        http_client=DefaultAioHttpClient(),
+    ) as client:
+        response = await client.responses.create(
+            model="gpt-5.2",
+            input="Say this is a test"
+        )
+        print(response.output_text)
+
+asyncio.run(main())
+```
+
+## Install Multiple Extensions
+
+You can combine multiple optional dependencies:
+
+<CodeGroup>
+```bash Realtime + Voice
+pip install openai[realtime,voice_helpers]
+```
+
+```bash All Optional Dependencies
+pip install openai[realtime,datalib,voice_helpers,aiohttp]
+```
+</CodeGroup>
+
+## Environment Setup
+
+<Steps>
+  <Step title="Get your API key">
+    Sign up for an OpenAI account and get your API key from the [API keys page](https://platform.openai.com/settings/organization/api-keys).
+  </Step>
+
+  <Step title="Set environment variable">
+    Set the `OPENAI_API_KEY` environment variable:
+
+    <CodeGroup>
+    ```bash macOS/Linux
+    export OPENAI_API_KEY="sk-proj-..."
+    ```
+
+    ```bash Windows (Command Prompt)
+    set OPENAI_API_KEY=sk-proj-...
+    ```
+
+    ```bash Windows (PowerShell)
+    $env:OPENAI_API_KEY="sk-proj-..."
+    ```
+    </CodeGroup>
+
+    <Tip>
+    Add this to your shell profile (`.bashrc`, `.zshrc`, etc.) to make it permanent.
+    </Tip>
+  </Step>
+
+  <Step title="Alternative: Use python-dotenv">
+    For better security, use [python-dotenv](https://pypi.org/project/python-dotenv/) to load your API key from a `.env` file:
+
+    ```bash
+    pip install python-dotenv
+    ```
+
+    Create a `.env` file in your project root:
+
+    ```bash .env
+    OPENAI_API_KEY=sk-proj-...
+    ```
+
+    Load it in your Python code:
+
+    ```python
+    from dotenv import load_dotenv
+    from openai import OpenAI
+
+    load_dotenv()  # Load .env file
+    client = OpenAI()  # API key automatically loaded from environment
+    ```
+
+    <Warning>
+    Never commit your `.env` file to version control. Add it to `.gitignore`.
+    </Warning>
+  </Step>
+
+  <Step title="Verify installation">
+    Test your installation:
+
+    ```python
+    import openai
+    from openai import OpenAI
+
+    print(f"OpenAI SDK version: {openai.__version__}")
+
+    client = OpenAI()
+    print("✓ SDK installed and configured successfully!")
+    ```
+  </Step>
+</Steps>
+
+## Additional Environment Variables
+
+The SDK supports several optional environment variables:
+
+| Variable | Description | Default |
+|----------|-------------|--------|
+| `OPENAI_API_KEY` | Your OpenAI API key | Required |
+| `OPENAI_BASE_URL` | Custom API endpoint | `https://api.openai.com/v1` |
+| `OPENAI_ORG_ID` | Organization ID | None |
+| `OPENAI_PROJECT_ID` | Project ID | None |
+| `OPENAI_WEBHOOK_SECRET` | Webhook verification secret | None |
+| `OPENAI_LOG` | Enable logging (`info` or `debug`) | Disabled |
+
+<Note>
+You can also pass these as parameters when creating the client instead of using environment variables.
+</Note>
+
+## Azure OpenAI
+
+To use the SDK with Azure OpenAI, use the `AzureOpenAI` class:
+
+```python
+from openai import AzureOpenAI
+
+client = AzureOpenAI(
+    api_version="2023-07-01-preview",
+    azure_endpoint="https://example-endpoint.openai.azure.com",
+)
+
+completion = client.chat.completions.create(
+    model="deployment-name",
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+```
+
+Azure-specific environment variables:
+- `AZURE_OPENAI_API_KEY`
+- `AZURE_OPENAI_ENDPOINT`
+- `OPENAI_API_VERSION`
+- `AZURE_OPENAI_AD_TOKEN`
+
+## Upgrading
+
+To upgrade to the latest version:
+
+```bash
+pip install --upgrade openai
+```
+
+Check your installed version:
+
+```python
+import openai
+print(openai.__version__)
+```
+
+## Next Steps
+
+<Card title="Quickstart" icon="rocket" href="/quickstart">
+  Make your first API call with the OpenAI SDK
+</Card>

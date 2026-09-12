@@ -1,0 +1,233 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "OpenAI Python SDK",
+  "projectDescription": "The official Python library providing convenient access to the OpenAI REST API with type definitions and async support.",
+  "theme": "sequoia",
+  "primaryColor": "#fbd342",
+  "lightColor": "#3b73a4",
+  "darkColor": "#e4e3de",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/client",
+              "concepts/async",
+              "concepts/streaming",
+              "concepts/error-handling",
+              "concepts/retries",
+              "concepts/timeouts"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/authentication",
+              "guides/azure-openai",
+              "guides/proxy",
+              "guides/pagination",
+              "guides/helpers",
+              "guides/migration"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Client",
+            "pages": [
+              "api/client",
+              "api/async-client"
+            ]
+          },
+          {
+            "group": "Responses",
+            "pages": [
+              "api/responses/create",
+              "api/responses/stream"
+            ]
+          },
+          {
+            "group": "Chat",
+            "pages": [
+              "api/chat/completions",
+              "api/chat/streaming"
+            ]
+          },
+          {
+            "group": "Audio",
+            "pages": [
+              "api/audio/speech",
+              "api/audio/transcriptions",
+              "api/audio/translations"
+            ]
+          },
+          {
+            "group": "Images",
+            "pages": [
+              "api/images/generate",
+              "api/images/edit",
+              "api/images/variations"
+            ]
+          },
+          {
+            "group": "Videos",
+            "pages": [
+              "api/videos/create",
+              "api/videos/remix"
+            ]
+          },
+          {
+            "group": "Embeddings",
+            "pages": [
+              "api/embeddings/create"
+            ]
+          },
+          {
+            "group": "Files",
+            "pages": [
+              "api/files/upload",
+              "api/files/list",
+              "api/files/retrieve",
+              "api/files/delete"
+            ]
+          },
+          {
+            "group": "Fine-tuning",
+            "pages": [
+              "api/fine-tuning/jobs",
+              "api/fine-tuning/checkpoints"
+            ]
+          },
+          {
+            "group": "Batches",
+            "pages": [
+              "api/batches/create",
+              "api/batches/retrieve",
+              "api/batches/list",
+              "api/batches/cancel"
+            ]
+          },
+          {
+            "group": "Assistants (Beta)",
+            "pages": [
+              "api/assistants/create",
+              "api/assistants/threads",
+              "api/assistants/messages",
+              "api/assistants/runs"
+            ]
+          },
+          {
+            "group": "Vector Stores",
+            "pages": [
+              "api/vector-stores/create",
+              "api/vector-stores/search",
+              "api/vector-stores/files"
+            ]
+          },
+          {
+            "group": "Moderations",
+            "pages": [
+              "api/moderations/create"
+            ]
+          },
+          {
+            "group": "Models",
+            "pages": [
+              "api/models/list",
+              "api/models/retrieve",
+              "api/models/delete"
+            ]
+          },
+          {
+            "group": "Realtime",
+            "pages": [
+              "api/realtime/sessions",
+              "api/realtime/events"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Type-safe Python SDK with full typing support",
+    "Synchronous and asynchronous client APIs",
+    "Streaming support for real-time responses",
+    "Built-in retry logic and error handling",
+    "Support for Azure OpenAI endpoints",
+    "Comprehensive API coverage including Responses, Chat, Audio, Images, Videos",
+    "Assistants API with threads and runs",
+    "Vector stores and embeddings",
+    "File uploads and batch processing",
+    "Fine-tuning job management",
+    "Realtime API for WebSocket connections"
+  ],
+  "publicApiSurface": [
+    "OpenAI",
+    "AsyncOpenAI",
+    "AzureOpenAI",
+    "AsyncAzureOpenAI",
+    "Client",
+    "AsyncClient",
+    "Stream",
+    "AsyncStream",
+    "responses.create()",
+    "chat.completions.create()",
+    "audio.speech.create()",
+    "audio.transcriptions.create()",
+    "audio.translations.create()",
+    "images.generate()",
+    "images.edit()",
+    "images.create_variation()",
+    "videos.create()",
+    "videos.remix()",
+    "embeddings.create()",
+    "files.create()",
+    "files.list()",
+    "files.retrieve()",
+    "files.delete()",
+    "fine_tuning.jobs.create()",
+    "fine_tuning.jobs.list()",
+    "fine_tuning.jobs.retrieve()",
+    "fine_tuning.jobs.cancel()",
+    "batches.create()",
+    "batches.retrieve()",
+    "batches.list()",
+    "batches.cancel()",
+    "beta.assistants.create()",
+    "beta.assistants.retrieve()",
+    "beta.threads.create()",
+    "beta.threads.messages.create()",
+    "beta.threads.runs.create()",
+    "vector_stores.create()",
+    "vector_stores.search()",
+    "moderations.create()",
+    "models.list()",
+    "models.retrieve()",
+    "models.delete()",
+    "AssistantEventHandler",
+    "AsyncAssistantEventHandler",
+    "pydantic_function_tool",
+    "file_from_path()",
+    "NOT_GIVEN",
+    "APIError",
+    "RateLimitError",
+    "AuthenticationError",
+    "APIConnectionError",
+    "APITimeoutError"
+  ]
+}

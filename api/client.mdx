@@ -1,0 +1,232 @@
+---
+title: OpenAI Client
+---
+
+The main client class for interacting with the OpenAI API synchronously.
+
+## Constructor
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    api_key="your-api-key",
+    organization="org-xxx",
+    project="proj-xxx"
+)
+```
+
+## Parameters
+
+<ParamField path="api_key" type="str | Callable[[], str] | None" default="None">
+  Your OpenAI API key. If not provided, the client will attempt to read it from the `OPENAI_API_KEY` environment variable. Required.
+  
+  Can also be a callable that returns a string, which will be called to refresh the API key when needed.
+</ParamField>
+
+<ParamField path="organization" type="str | None" default="None">
+  Your OpenAI organization ID. If not provided, the client will attempt to read it from the `OPENAI_ORG_ID` environment variable.
+  
+  When provided, this will be sent as the `OpenAI-Organization` header on all requests.
+</ParamField>
+
+<ParamField path="project" type="str | None" default="None">
+  Your OpenAI project ID. If not provided, the client will attempt to read it from the `OPENAI_PROJECT_ID` environment variable.
+  
+  When provided, this will be sent as the `OpenAI-Project` header on all requests.
+</ParamField>
+
+<ParamField path="webhook_secret" type="str | None" default="None">
+  Secret key for validating webhook signatures. If not provided, the client will attempt to read it from the `OPENAI_WEBHOOK_SECRET` environment variable.
+</ParamField>
+
+<ParamField path="base_url" type="str | httpx.URL | None" default="None">
+  Override the default base URL for the API. If not provided, the client will attempt to read it from the `OPENAI_BASE_URL` environment variable, otherwise defaults to `https://api.openai.com/v1`.
+</ParamField>
+
+<ParamField path="websocket_base_url" type="str | httpx.URL | None" default="None">
+  Base URL for WebSocket connections (used for Realtime API).
+  
+  If not specified, the default base URL will be used with the scheme changed to `wss://`. For example, `https://api.openai.com` becomes `wss://api.openai.com`.
+</ParamField>
+
+<ParamField path="timeout" type="float | Timeout | None" default="600 seconds">
+  Request timeout configuration. Can be:
+  - A float representing timeout in seconds
+  - An `httpx.Timeout` object for fine-grained control
+  - `None` to disable timeouts
+  
+  Default is 600 seconds (10 minutes) for the overall timeout and 5 seconds for connect timeout.
+</ParamField>
+
+<ParamField path="max_retries" type="int" default="2">
+  Maximum number of retries for failed requests. Set to `0` to disable retries.
+  
+  The client will automatically retry requests that fail due to network errors or certain HTTP status codes (429, 500, 502, 503, 504).
+</ParamField>
+
+<ParamField path="default_headers" type="Mapping[str, str] | None" default="None">
+  Additional HTTP headers to include on all requests.
+</ParamField>
+
+<ParamField path="default_query" type="Mapping[str, object] | None" default="None">
+  Default query parameters to include on all requests.
+</ParamField>
+
+<ParamField path="http_client" type="httpx.Client | None" default="None">
+  Custom `httpx.Client` instance to use for making requests.
+  
+  You can use `DefaultHttpxClient` to retain the default values for `limits`, `timeout`, and `follow_redirects` while customizing other options.
+</ParamField>
+
+## Properties
+
+The client provides access to various API resources through properties:
+
+- `client.chat` - Chat completions
+- `client.completions` - Text completions
+- `client.embeddings` - Embeddings
+- `client.files` - File operations
+- `client.images` - Image generation
+- `client.audio` - Audio transcription and generation
+- `client.moderations` - Content moderation
+- `client.models` - Model information
+- `client.fine_tuning` - Fine-tuning operations
+- `client.batches` - Batch API
+- `client.uploads` - Multipart file uploads
+- `client.beta` - Beta features (Assistants, Threads, etc.)
+- `client.vector_stores` - Vector store operations
+- `client.realtime` - Realtime API
+- `client.webhooks` - Webhook utilities
+
+## Examples
+
+### Basic usage
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+response = client.chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Hello!"}]
+)
+```
+
+### With explicit API key
+
+```python
+client = OpenAI(api_key="sk-...")
+```
+
+### With organization and project
+
+```python
+client = OpenAI(
+    organization="org-xxx",
+    project="proj-xxx"
+)
+```
+
+### Custom timeout configuration
+
+```python
+import httpx
+
+# Simple timeout (in seconds)
+client = OpenAI(timeout=30.0)
+
+# Fine-grained timeout control
+client = OpenAI(
+    timeout=httpx.Timeout(
+        timeout=60.0,  # Total request timeout
+        connect=5.0,   # Connection timeout
+        read=30.0,     # Read timeout
+        write=10.0     # Write timeout
+    )
+)
+```
+
+### Custom retry configuration
+
+```python
+# No retries
+client = OpenAI(max_retries=0)
+
+# More aggressive retries
+client = OpenAI(max_retries=5)
+```
+
+### Custom HTTP client with connection pooling
+
+```python
+import httpx
+from openai import OpenAI, DefaultHttpxClient
+
+# Custom connection limits
+client = OpenAI(
+    http_client=DefaultHttpxClient(
+        limits=httpx.Limits(
+            max_connections=100,
+            max_keepalive_connections=20
+        )
+    )
+)
+```
+
+### Using a callable for dynamic API key
+
+```python
+def get_api_key():
+    # Fetch API key from secure storage
+    return fetch_from_vault("openai_api_key")
+
+client = OpenAI(api_key=get_api_key)
+```
+
+### Custom headers
+
+```python
+client = OpenAI(
+    default_headers={
+        "X-Custom-Header": "value"
+    }
+)
+```
+
+### Using with_options for per-request configuration
+
+```python
+client = OpenAI()
+
+# Make a single request with custom timeout
+response = client.with_options(timeout=30.0).chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Hello!"}]
+)
+```
+
+## Methods
+
+### copy()
+
+Create a new client instance with the same configuration, optionally overriding specific options.
+
+```python
+base_client = OpenAI()
+
+# Create a copy with different timeout
+new_client = base_client.copy(timeout=30.0)
+
+# Create a copy with different organization
+org_client = base_client.copy(organization="org-different")
+```
+
+### with_options()
+
+Alias for `copy()`, useful for inline usage:
+
+```python
+client.with_options(timeout=10).chat.completions.create(...)
+```

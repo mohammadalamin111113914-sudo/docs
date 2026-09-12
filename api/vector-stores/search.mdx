@@ -1,0 +1,162 @@
+---
+title: "Search Vector Store"
+api: "POST https://api.openai.com/v1/vector_stores/{vector_store_id}/search"
+---
+
+Search a vector store for relevant chunks based on a query and file attributes filter.
+
+## Path Parameters
+
+<ParamField path="vector_store_id" type="string" required>
+  The ID of the vector store to search.
+</ParamField>
+
+## Request Body
+
+<ParamField body="query" type="string" required>
+  A query string for a search. Can also be an array of strings for multi-query search.
+</ParamField>
+
+<ParamField body="max_num_results" type="integer">
+  The maximum number of results to return. This number should be between 1 and 50 inclusive.
+</ParamField>
+
+<ParamField body="filters" type="object">
+  A filter to apply based on file attributes.
+  
+  Example:
+  ```json
+  {
+    "file_id": "file-abc123"
+  }
+  ```
+</ParamField>
+
+<ParamField body="ranking_options" type="object">
+  Ranking options for search.
+  
+  <Expandable title="properties">
+    <ParamField body="ranker" type="string">
+      The ranking algorithm to use. Options include:
+      - `default_2024_08_21`: Default ranking algorithm
+    </ParamField>
+    
+    <ParamField body="score_threshold" type="number">
+      Minimum score threshold for results.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="rewrite_query" type="boolean">
+  Whether to rewrite the natural language query for vector search.
+</ParamField>
+
+## Response
+
+Returns a list of search results with relevant chunks.
+
+<ResponseField name="data" type="array">
+  Array of search result objects.
+  
+  <Expandable title="Search result object">
+    <ResponseField name="type" type="string">
+      The type of the object, always `vector_store.search_result`.
+    </ResponseField>
+    
+    <ResponseField name="score" type="number">
+      The relevance score of the chunk.
+    </ResponseField>
+    
+    <ResponseField name="content" type="string">
+      The text content of the chunk.
+    </ResponseField>
+    
+    <ResponseField name="file_id" type="string">
+      The ID of the file this chunk came from.
+    </ResponseField>
+    
+    <ResponseField name="metadata" type="object">
+      Metadata about the chunk location within the file.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<RequestExample>
+```python Python
+from openai import OpenAI
+client = OpenAI()
+
+results = client.beta.vector_stores.search(
+    vector_store_id="vs_abc123",
+    query="How do I reset my password?",
+    max_num_results=5
+)
+
+for result in results.data:
+    print(f"Score: {result.score}")
+    print(f"Content: {result.content}")
+    print(f"File: {result.file_id}")
+    print("---")
+```
+
+```javascript Node.js
+import OpenAI from "openai";
+const openai = new OpenAI();
+
+const results = await openai.beta.vectorStores.search(
+  "vs_abc123",
+  {
+    query: "How do I reset my password?",
+    max_num_results: 5
+  }
+);
+
+for (const result of results.data) {
+  console.log(`Score: ${result.score}`);
+  console.log(`Content: ${result.content}`);
+  console.log(`File: ${result.file_id}`);
+  console.log("---");
+}
+```
+
+```bash cURL
+curl https://api.openai.com/v1/vector_stores/vs_abc123/search \\
+  -H "Authorization: Bearer $OPENAI_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "OpenAI-Beta: assistants=v2" \\
+  -d '{
+    "query": "How do I reset my password?",
+    "max_num_results": 5
+  }'
+```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "type": "vector_store.search_result",
+      "score": 0.95,
+      "content": "To reset your password, click on the 'Forgot Password' link on the login page...",
+      "file_id": "file-abc123",
+      "metadata": {
+        "page": 5,
+        "chunk_id": "chunk_789"
+      }
+    },
+    {
+      "type": "vector_store.search_result",
+      "score": 0.87,
+      "content": "Password reset instructions: Navigate to Settings > Security > Reset Password...",
+      "file_id": "file-abc456",
+      "metadata": {
+        "page": 12,
+        "chunk_id": "chunk_456"
+      }
+    }
+  ]
+}
+```
+</ResponseExample>

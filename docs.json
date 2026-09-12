@@ -1,0 +1,182 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "name": "OpenAI Python SDK",
+  "theme": "sequoia",
+  "mode": "custom",
+  "colors": {
+    "primary": "#fbd342",
+    "light": "#3b73a4",
+    "dark": "#e4e3de"
+  },
+  "logo": {
+    "light": "https://media.brand.dev/4bc74007-f6b1-49ae-bb02-98086c2a01d2.svg",
+    "dark": "https://media.brand.dev/4bc74007-f6b1-49ae-bb02-98086c2a01d2.svg"
+  },
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/openai/openai-python"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/openai/openai-python"
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "installation",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Concepts",
+            "pages": [
+              "concepts/client",
+              "concepts/async",
+              "concepts/streaming",
+              "concepts/error-handling",
+              "concepts/retries",
+              "concepts/timeouts"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/authentication",
+              "guides/azure-openai",
+              "guides/proxy",
+              "guides/pagination",
+              "guides/helpers",
+              "guides/migration"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Client",
+            "pages": [
+              "api/client",
+              "api/async-client"
+            ]
+          },
+          {
+            "group": "Responses",
+            "pages": [
+              "api/responses/create",
+              "api/responses/stream"
+            ]
+          },
+          {
+            "group": "Chat",
+            "pages": [
+              "api/chat/completions",
+              "api/chat/streaming"
+            ]
+          },
+          {
+            "group": "Audio",
+            "pages": [
+              "api/audio/speech",
+              "api/audio/transcriptions",
+              "api/audio/translations"
+            ]
+          },
+          {
+            "group": "Images",
+            "pages": [
+              "api/images/generate",
+              "api/images/edit",
+              "api/images/variations"
+            ]
+          },
+          {
+            "group": "Videos",
+            "pages": [
+              "api/videos/create",
+              "api/videos/remix"
+            ]
+          },
+          {
+            "group": "Embeddings",
+            "pages": [
+              "api/embeddings/create"
+            ]
+          },
+          {
+            "group": "Files",
+            "pages": [
+              "api/files/upload",
+              "api/files/list",
+              "api/files/retrieve",
+              "api/files/delete"
+            ]
+          },
+          {
+            "group": "Fine-tuning",
+            "pages": [
+              "api/fine-tuning/jobs",
+              "api/fine-tuning/checkpoints"
+            ]
+          },
+          {
+            "group": "Batches",
+            "pages": [
+              "api/batches/create",
+              "api/batches/retrieve",
+              "api/batches/list",
+              "api/batches/cancel"
+            ]
+          },
+          {
+            "group": "Assistants (Beta)",
+            "pages": [
+              "api/assistants/create",
+              "api/assistants/threads",
+              "api/assistants/messages",
+              "api/assistants/runs"
+            ]
+          },
+          {
+            "group": "Vector Stores",
+            "pages": [
+              "api/vector-stores/create",
+              "api/vector-stores/search",
+              "api/vector-stores/files"
+            ]
+          },
+          {
+            "group": "Moderations",
+            "pages": [
+              "api/moderations/create"
+            ]
+          },
+          {
+            "group": "Models",
+            "pages": [
+              "api/models/list",
+              "api/models/retrieve",
+              "api/models/delete"
+            ]
+          },
+          {
+            "group": "Realtime",
+            "pages": [
+              "api/realtime/sessions",
+              "api/realtime/events"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

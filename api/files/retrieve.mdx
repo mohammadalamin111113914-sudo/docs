@@ -1,0 +1,170 @@
+---
+title: "Retrieve File"
+description: "Returns information about a specific file"
+---
+
+## Method Signature
+
+```python
+client.files.retrieve(
+    file_id: str
+) -> FileObject
+```
+
+## Parameters
+
+<ParamField path="file_id" type="str" required>
+  The ID of the file to retrieve information about.
+</ParamField>
+
+## Response
+
+Returns a `FileObject`:
+
+```python
+class FileObject(BaseModel):
+    id: str  # File identifier
+    bytes: int  # File size in bytes
+    created_at: int  # Unix timestamp
+    filename: str  # Original file name
+    object: Literal["file"]  # Always "file"
+    purpose: str  # File purpose
+    status: Literal["uploaded", "processed", "error"]  # Processing status
+    expires_at: Optional[int]  # Unix timestamp when file expires
+    status_details: Optional[str]  # Error details if status is "error"
+```
+
+## Examples
+
+### Retrieve File Metadata
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+file = client.files.retrieve("file-abc123")
+
+print(f"Filename: {file.filename}")
+print(f"Size: {file.bytes} bytes")
+print(f"Purpose: {file.purpose}")
+print(f"Status: {file.status}")
+```
+
+### Check File Processing Status
+
+```python
+file = client.files.retrieve("file-abc123")
+
+if file.status == "processed":
+    print("File is ready to use")
+elif file.status == "error":
+    print(f"File processing failed: {file.status_details}")
+else:
+    print(f"File is still processing...")
+```
+
+### Get File Information with Date Formatting
+
+```python
+from datetime import datetime
+
+file = client.files.retrieve("file-abc123")
+
+created_date = datetime.fromtimestamp(file.created_at)
+size_mb = file.bytes / (1024 * 1024)
+
+print(f"File: {file.filename}")
+print(f"Created: {created_date.strftime('%Y-%m-%d %H:%M:%S')}")
+print(f"Size: {size_mb:.2f} MB")
+
+if file.expires_at:
+    expires_date = datetime.fromtimestamp(file.expires_at)
+    print(f"Expires: {expires_date.strftime('%Y-%m-%d %H:%M:%S')}")
+```
+
+### Retrieve and Download File Content
+
+```python
+# Get file metadata
+file = client.files.retrieve("file-abc123")
+print(f"Downloading {file.filename}...")
+
+# Download the actual file content
+content = client.files.content(file.id)
+
+# Save to disk
+with open(file.filename, "wb") as f:
+    f.write(content.read())
+
+print(f"Downloaded {file.bytes} bytes")
+```
+
+## Async Usage
+
+```python
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+
+file = await client.files.retrieve("file-abc123")
+print(f"{file.filename}: {file.status}")
+```
+
+## Related Methods
+
+### Download File Content
+
+To retrieve the actual file contents (not just metadata):
+
+```python
+# Get binary content
+content = client.files.content("file-abc123")
+
+# content is an HttpxBinaryResponseContent object
+binary_data = content.read()
+
+# Save to file
+with open("downloaded_file.jsonl", "wb") as f:
+    f.write(binary_data)
+```
+
+### Wait for File Processing
+
+```python
+# Wait for file to finish processing
+file = client.files.wait_for_processing(
+    "file-abc123",
+    poll_interval=5.0,  # Check every 5 seconds
+    max_wait_seconds=1800  # Wait up to 30 minutes
+)
+
+if file.status == "processed":
+    print("File ready!")
+```
+
+## Error Handling
+
+```python
+from openai import OpenAI, NotFoundError
+
+client = OpenAI()
+
+try:
+    file = client.files.retrieve("file-invalid")
+except NotFoundError:
+    print("File not found")
+except Exception as e:
+    print(f"Error retrieving file: {e}")
+```
+
+## Notes
+
+- This method only returns file metadata, not the actual file contents
+- Use `client.files.content(file_id)` to download the actual file data
+- The `status` field indicates whether the file has been processed:
+  - `uploaded` - File has been uploaded but not yet processed
+  - `processed` - File is ready to use
+  - `error` - File processing failed (check `status_details`)
+- Files uploaded for fine-tuning are validated asynchronously
+- Check the `expires_at` field to see if the file has an expiration date

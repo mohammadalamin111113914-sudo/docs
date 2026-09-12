@@ -1,0 +1,236 @@
+---
+title: "Create Video"
+api: "POST /videos"
+---
+
+Create a new video generation job from a prompt and optional reference assets.
+
+## Method Signature
+
+```python
+client.videos.create(
+    prompt="A serene ocean at sunset",
+    model="sora-2",
+    seconds=8,
+    size="1280x720"
+)
+```
+
+## Parameters
+
+<ParamField path="prompt" type="string" required>
+  Text prompt that describes the video to generate.
+</ParamField>
+
+<ParamField path="model" type="string">
+  The video generation model to use. Allowed values:
+  - `sora-2` (default)
+  - `sora-2-pro`
+</ParamField>
+
+<ParamField path="seconds" type="integer">
+  Clip duration in seconds. Allowed values:
+  - `4` (default)
+  - `8`
+  - `12`
+</ParamField>
+
+<ParamField path="size" type="string">
+  Output resolution formatted as width x height. Allowed values:
+  - `720x1280` (default) - vertical/portrait
+  - `1280x720` - horizontal/landscape
+  - `1024x1792` - vertical high-res
+  - `1792x1024` - horizontal high-res
+</ParamField>
+
+<ParamField path="input_reference" type="file">
+  Optional image reference that guides generation.
+</ParamField>
+
+## Returns
+
+Returns a `Video` object representing the video generation job.
+
+<ResponseField name="id" type="string">
+  Unique identifier for the video job.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Current lifecycle status of the video job:
+  - `queued` - waiting to start
+  - `in_progress` - currently generating
+  - `completed` - successfully finished
+  - `failed` - generation failed
+</ResponseField>
+
+<ResponseField name="created_at" type="integer">
+  Unix timestamp (seconds) for when the job was created.
+</ResponseField>
+
+<ResponseField name="completed_at" type="integer">
+  Unix timestamp (seconds) for when the job completed, if finished.
+</ResponseField>
+
+<ResponseField name="expires_at" type="integer">
+  Unix timestamp (seconds) for when the downloadable assets expire, if set.
+</ResponseField>
+
+<ResponseField name="model" type="string">
+  The video generation model that produced the job.
+</ResponseField>
+
+<ResponseField name="prompt" type="string">
+  The prompt that was used to generate the video.
+</ResponseField>
+
+<ResponseField name="seconds" type="integer">
+  Duration of the generated clip in seconds.
+</ResponseField>
+
+<ResponseField name="size" type="string">
+  The resolution of the generated video.
+</ResponseField>
+
+<ResponseField name="progress" type="integer">
+  Approximate completion percentage for the generation task (0-100).
+</ResponseField>
+
+<ResponseField name="error" type="object">
+  Error payload that explains why generation failed, if applicable.
+</ResponseField>
+
+<ResponseField name="remixed_from_video_id" type="string">
+  Identifier of the source video if this video is a remix.
+</ResponseField>
+
+## Helper Methods
+
+### create_and_poll
+
+Create a video and wait for it to be processed.
+
+```python
+video = client.videos.create_and_poll(
+    prompt="A cat playing with a ball of yarn",
+    model="sora-2",
+    seconds=8
+)
+
+print(f"Video completed with status: {video.status}")
+```
+
+### poll
+
+Wait for a video job to finish processing.
+
+```python
+video = client.videos.create(
+    prompt="A scenic mountain landscape"
+)
+
+# Later, poll for completion
+completed_video = client.videos.poll(video.id)
+print(f"Status: {completed_video.status}")
+```
+
+## Examples
+
+### Basic video generation
+
+```python
+from openai import OpenAI
+client = OpenAI()
+
+video = client.videos.create(
+    prompt="A beautiful sunset over the ocean with waves crashing",
+    model="sora-2",
+    seconds=8,
+    size="1280x720"
+)
+
+print(f"Video ID: {video.id}")
+print(f"Status: {video.status}")
+print(f"Progress: {video.progress}%")
+```
+
+### Generate and wait for completion
+
+```python
+from openai import OpenAI
+client = OpenAI()
+
+video = client.videos.create_and_poll(
+    prompt="A bustling city street at night with neon lights",
+    model="sora-2-pro",
+    seconds=12,
+    size="1792x1024"
+)
+
+if video.status == "completed":
+    print(f"Video ready! ID: {video.id}")
+    print(f"Expires at: {video.expires_at}")
+else:
+    print(f"Video failed with error: {video.error}")
+```
+
+### Generate with image reference
+
+```python
+from openai import OpenAI
+client = OpenAI()
+
+video = client.videos.create(
+    prompt="Animate this image with gentle movement and lighting changes",
+    input_reference=open("reference_image.png", "rb"),
+    model="sora-2",
+    seconds=4,
+    size="720x1280"
+)
+
+print(f"Video generation started: {video.id}")
+```
+
+### Monitor progress with polling
+
+```python
+from openai import OpenAI
+import time
+
+client = OpenAI()
+
+video = client.videos.create(
+    prompt="A serene forest with sunlight filtering through trees",
+    model="sora-2",
+    seconds=8
+)
+
+print(f"Started generation: {video.id}")
+
+# Manual polling with progress updates
+while video.status in ["queued", "in_progress"]:
+    video = client.videos.retrieve(video.id)
+    print(f"Progress: {video.progress}% - Status: {video.status}")
+    time.sleep(2)
+
+print(f"Final status: {video.status}")
+```
+
+### Vertical video for social media
+
+```python
+from openai import OpenAI
+client = OpenAI()
+
+video = client.videos.create_and_poll(
+    prompt="A person walking through a vibrant flower garden",
+    model="sora-2",
+    seconds=8,
+    size="720x1280"  # Vertical format for Instagram/TikTok
+)
+
+if video.status == "completed":
+    # Download the video (see download_content documentation)
+    content = client.videos.download_content(video.id)
+    with open("social_media_video.mp4", "wb") as f:
+        f.write(content.read())
+```

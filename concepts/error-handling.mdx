@@ -1,0 +1,484 @@
+---
+title: 'Error Handling'
+description: 'Handle exceptions and errors when working with the OpenAI API'
+---
+
+## Overview
+
+The OpenAI Python SDK provides a hierarchy of exception classes to help you handle different error scenarios. All exceptions inherit from `openai.APIError`.
+
+## Exception Hierarchy
+
+```
+OpenAIError
+├── APIError
+│   ├── APIConnectionError
+│   │   └── APITimeoutError
+│   ├── APIResponseValidationError
+│   └── APIStatusError
+│       ├── BadRequestError (400)
+│       ├── AuthenticationError (401)
+│       ├── PermissionDeniedError (403)
+│       ├── NotFoundError (404)
+│       ├── ConflictError (409)
+│       ├── UnprocessableEntityError (422)
+│       ├── RateLimitError (429)
+│       └── InternalServerError (5xx)
+├── LengthFinishReasonError
+├── ContentFilterFinishReasonError
+└── InvalidWebhookSignatureError
+```
+
+## Basic Error Handling
+
+```python
+import openai
+from openai import OpenAI
+
+client = OpenAI()
+
+try:
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": "Hello!"}],
+    )
+except openai.APIConnectionError as e:
+    print("The server could not be reached")
+    print(e.__cause__)  # an underlying Exception, likely raised within httpx.
+except openai.RateLimitError as e:
+    print("A 429 status code was received; we should back off a bit.")
+except openai.APIStatusError as e:
+    print("Another non-200-range status code was received")
+    print(e.status_code)
+    print(e.response)
+```
+
+## Exception Classes
+
+### APIConnectionError
+
+Raised when the SDK cannot connect to the API.
+
+**Attributes:**
+- `message` (str) - Error description
+- `request` (httpx.Request) - The request that failed
+
+```python
+import openai
+from openai import OpenAI
+
+client = OpenAI()
+
+try:
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": "Hello!"}],
+    )
+except openai.APIConnectionError as e:
+    print(f"Connection failed: {e.message}")
+    print(f"Request URL: {e.request.url}")
+    # Underlying exception (e.g., network error)
+    print(f"Cause: {e.__cause__}")
+```
+
+### APITimeoutError
+
+Raised when a request times out. Inherits from `APIConnectionError`.
+
+```python
+import openai
+from openai import OpenAI
+
+client = OpenAI(timeout=5.0)  # 5 second timeout
+
+try:
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": "Hello!"}],
+    )
+except openai.APITimeoutError as e:
+    print(f"Request timed out: {e.message}")
+    print(f"Request: {e.request.url}")
+```
+
+<Note>
+Timeout errors are automatically retried by default. See [Retries](/concepts/retries) for configuration.
+</Note>
+
+### APIStatusError
+
+Base class for all HTTP status code errors (4xx and 5xx responses).
+
+**Attributes:**
+- `message` (str) - Error description
+- `request` (httpx.Request) - The request that failed
+- `response` (httpx.Response) - The error response
+- `status_code` (int) - HTTP status code
+- `request_id` (str | None) - Request ID from `x-request-id` header
+- `body` (object | None) - Response body (parsed JSON or raw string)
+- `code` (str | None) - Error code from response
+- `param` (str | None) - Parameter that caused the error
+- `type` (str | None) - Error type from response
+
+```python
+import openai
+from openai import OpenAI
+
+client = OpenAI()
+
+try:
+    response = client.chat.completions.create(
+        model="invalid-model",
+        messages=[{"role": "user", "content": "Hello!"}],
+    )
+except openai.APIStatusError as e:
+    print(f"Status code: {e.status_code}")
+    print(f"Request ID: {e.request_id}")
+    print(f"Error code: {e.code}")
+    print(f"Error type: {e.type}")
+    print(f"Error body: {e.body}")
+    print(f"Response headers: {e.response.headers}")
+```
+
+### BadRequestError (400)
+
+The request was invalid or malformed.
+
+```python
+import openai
+from openai import OpenAI
+
+client = OpenAI()
+
+try:
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[],  # Invalid: empty messages
+    )
+except openai.BadRequestError as e:
+    print(f"Invalid request: {e.message}")
+    print(f"Parameter: {e.param}")
+```
+
+### AuthenticationError (401)
+
+Authentication failed (invalid API key).
+
+```python
+import openai
+from openai import OpenAI
+
+client = OpenAI(api_key="invalid-key")
+
+try:
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": "Hello!"}],
+    )
+except openai.AuthenticationError as e:
+    print(f"Authentication failed: {e.message}")
+    print("Check your API key")
+```
+
+### PermissionDeniedError (403)
+
+The API key doesn't have permission to access the resource.
+
+```python
+import openai
+from openai import OpenAI
+
+client = OpenAI()
+
+try:
+    response = client.fine_tuning.jobs.create(
+        model="gpt-4",
+        training_file="file-abc123",
+    )
+except openai.PermissionDeniedError as e:
+    print(f"Permission denied: {e.message}")
+    print("Check your organization's access level")
+```
+
+### NotFoundError (404)
+
+The requested resource doesn't exist.
+
+```python
+import openai
+from openai import OpenAI
+
+client = OpenAI()
+
+try:
+    file = client.files.retrieve("file-nonexistent")
+except openai.NotFoundError as e:
+    print(f"Resource not found: {e.message}")
+```
+
+### ConflictError (409)
+
+The request conflicts with the current state of the resource.
+
+```python
+import openai
+from openai import OpenAI
+
+client = OpenAI()
+
+try:
+    # Some operation that might conflict
+    response = client.some_resource.create(...)
+except openai.ConflictError as e:
+    print(f"Conflict: {e.message}")
+```
+
+<Note>
+Conflict errors (409) are automatically retried by default.
+</Note>
+
+### UnprocessableEntityError (422)
+
+The request was well-formed but contains semantic errors.
+
+```python
+import openai
+from openai import OpenAI
+
+client = OpenAI()
+
+try:
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "invalid-role", "content": "Hello!"}],
+    )
+except openai.UnprocessableEntityError as e:
+    print(f"Validation error: {e.message}")
+    print(f"Parameter: {e.param}")
+```
+
+### RateLimitError (429)
+
+Rate limit exceeded. You're sending requests too quickly.
+
+```python
+import openai
+import time
+from openai import OpenAI
+
+client = OpenAI()
+
+try:
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": "Hello!"}],
+    )
+except openai.RateLimitError as e:
+    print(f"Rate limit exceeded: {e.message}")
+    print(f"Request ID: {e.request_id}")
+    
+    # Check for Retry-After header
+    retry_after = e.response.headers.get("retry-after")
+    if retry_after:
+        print(f"Retry after {retry_after} seconds")
+```
+
+<Warning>
+Rate limit errors (429) are automatically retried with exponential backoff. The SDK respects `Retry-After` headers.
+</Warning>
+
+### InternalServerError (500+)
+
+The API encountered an internal error.
+
+```python
+import openai
+from openai import OpenAI
+
+client = OpenAI()
+
+try:
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": "Hello!"}],
+    )
+except openai.InternalServerError as e:
+    print(f"Server error: {e.status_code}")
+    print(f"Message: {e.message}")
+    print(f"Request ID: {e.request_id}")
+```
+
+<Note>
+Server errors (5xx) are automatically retried by default.
+</Note>
+
+### APIResponseValidationError
+
+Raised when the API response doesn't match the expected schema.
+
+**Attributes:**
+- `message` (str) - Error description
+- `request` (httpx.Request) - The request
+- `response` (httpx.Response) - The response
+- `status_code` (int) - HTTP status code
+- `body` (object | None) - Response body
+
+```python
+import openai
+from openai import OpenAI
+
+# Enable strict response validation
+client = OpenAI(_strict_response_validation=True)
+
+try:
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": "Hello!"}],
+    )
+except openai.APIResponseValidationError as e:
+    print(f"Invalid response: {e.message}")
+    print(f"Status: {e.status_code}")
+    print(f"Body: {e.body}")
+```
+
+<Warning>
+`_strict_response_validation` is an internal parameter and may change in future versions.
+</Warning>
+
+### LengthFinishReasonError
+
+Raised when a completion is truncated due to length limits.
+
+**Attributes:**
+- `completion` (ChatCompletion) - The truncated completion
+
+```python
+from openai import OpenAI
+from openai.types.chat import ChatCompletion
+
+client = OpenAI()
+
+try:
+    # Process completion
+    completion = ChatCompletion(...)
+    
+    if completion.choices[0].finish_reason == "length":
+        from openai import LengthFinishReasonError
+        raise LengthFinishReasonError(completion=completion)
+        
+except LengthFinishReasonError as e:
+    print(f"Response truncated: {e.message}")
+    if e.completion.usage:
+        print(f"Tokens used: {e.completion.usage}")
+```
+
+### ContentFilterFinishReasonError
+
+Raised when content is filtered due to content policy violations.
+
+```python
+from openai import OpenAI
+from openai import ContentFilterFinishReasonError
+
+client = OpenAI()
+
+try:
+    # Process completion
+    # If finish_reason is "content_filter"
+    raise ContentFilterFinishReasonError()
+    
+except ContentFilterFinishReasonError as e:
+    print(f"Content filtered: {e}")
+```
+
+### InvalidWebhookSignatureError
+
+Raised when webhook signature verification fails.
+
+```python
+from openai import OpenAI, InvalidWebhookSignatureError
+
+client = OpenAI()
+
+try:
+    event = client.webhooks.unwrap(request_body, request_headers)
+except InvalidWebhookSignatureError as e:
+    print(f"Invalid signature: {e}")
+    # Reject the webhook
+```
+
+## Async Error Handling
+
+Error handling works identically with `AsyncOpenAI`:
+
+```python
+import asyncio
+import openai
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+
+async def main():
+    try:
+        response = await client.chat.completions.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": "Hello!"}],
+        )
+    except openai.APIConnectionError as e:
+        print(f"Connection error: {e}")
+    except openai.RateLimitError as e:
+        print(f"Rate limit: {e}")
+    except openai.APIStatusError as e:
+        print(f"API error: {e.status_code}")
+
+asyncio.run(main())
+```
+
+## Request IDs
+
+All `APIStatusError` exceptions include a `request_id` for debugging:
+
+```python
+import openai
+from openai import OpenAI
+
+client = OpenAI()
+
+try:
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": "Hello!"}],
+    )
+except openai.APIStatusError as e:
+    print(f"Request ID: {e.request_id}")
+    # Use this ID when contacting support
+```
+
+## Retry Strategy
+
+Some errors are automatically retried:
+
+- **Connection errors** - Network failures
+- **Timeout errors (408)** - Request timeouts
+- **Conflict errors (409)** - Resource conflicts
+- **Rate limit errors (429)** - Too many requests
+- **Server errors (5xx)** - Internal server errors
+
+See [Retries](/concepts/retries) for configuration details.
+
+## Best Practices
+
+<Warning>
+- Always catch specific exceptions before general ones
+- Log `request_id` for failed requests to help with debugging
+- Handle rate limits gracefully with exponential backoff
+- Don't expose API keys in error logs
+- Consider retrying transient errors (timeouts, connection errors)
+- Check `finish_reason` for content filter or length issues
+</Warning>
+
+## Related
+
+- [Retries](/concepts/retries) - Automatic retry configuration
+- [Timeouts](/concepts/timeouts) - Request timeout handling
+- [Client Initialization](/concepts/client) - Client configuration

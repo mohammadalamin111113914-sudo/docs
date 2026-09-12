@@ -1,0 +1,253 @@
+---
+title: 'Client Initialization'
+description: 'Learn how to initialize and configure OpenAI and AsyncOpenAI clients'
+---
+
+## Overview
+
+The OpenAI Python SDK provides two client classes for interacting with the API:
+- `OpenAI` - Synchronous client for blocking operations
+- `AsyncOpenAI` - Asynchronous client for concurrent operations
+
+Both clients automatically infer credentials from environment variables and provide the same interface for API operations.
+
+## Basic Initialization
+
+### Synchronous Client
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+```
+
+The client automatically reads the `OPENAI_API_KEY` environment variable. You can also pass the API key explicitly:
+
+```python
+client = OpenAI(api_key="your-api-key-here")
+```
+
+### Asynchronous Client
+
+```python
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+```
+
+<Info>
+The `AsyncOpenAI` client provides the same initialization options as `OpenAI`. All API methods return awaitable coroutines.
+</Info>
+
+## Configuration Options
+
+The client accepts several configuration parameters to customize behavior:
+
+<ParamField path="api_key" type="str | Callable[[], str]">
+  Your OpenAI API key. Can be a string or a callable that returns a string (for dynamic key rotation).
+  
+  **Environment variable:** `OPENAI_API_KEY`
+</ParamField>
+
+<ParamField path="organization" type="str | None" default="None">
+  Your organization ID for API requests.
+  
+  **Environment variable:** `OPENAI_ORG_ID`
+</ParamField>
+
+<ParamField path="project" type="str | None" default="None">
+  Your project ID for API requests.
+  
+  **Environment variable:** `OPENAI_PROJECT_ID`
+</ParamField>
+
+<ParamField path="base_url" type="str | httpx.URL | None" default="https://api.openai.com/v1">
+  Override the default API base URL.
+  
+  **Environment variable:** `OPENAI_BASE_URL`
+</ParamField>
+
+<ParamField path="timeout" type="float | Timeout | None" default="600 seconds">
+  Request timeout in seconds. Can be a float or an `httpx.Timeout` object for granular control.
+  
+  See [Timeouts](/concepts/timeouts) for detailed configuration.
+</ParamField>
+
+<ParamField path="max_retries" type="int" default="2">
+  Maximum number of retry attempts for failed requests.
+  
+  See [Retries](/concepts/retries) for retry behavior details.
+</ParamField>
+
+<ParamField path="default_headers" type="Mapping[str, str] | None" default="None">
+  Additional headers to include with every request.
+</ParamField>
+
+<ParamField path="default_query" type="Mapping[str, object] | None" default="None">
+  Additional query parameters to include with every request.
+</ParamField>
+
+<ParamField path="http_client" type="httpx.Client | httpx.AsyncClient | None" default="None">
+  Custom HTTP client instance. Use `DefaultHttpxClient` or `DefaultAsyncHttpxClient` to preserve SDK defaults.
+</ParamField>
+
+<ParamField path="webhook_secret" type="str | None" default="None">
+  Secret for webhook signature verification.
+  
+  **Environment variable:** `OPENAI_WEBHOOK_SECRET`
+</ParamField>
+
+<ParamField path="websocket_base_url" type="str | httpx.URL | None" default="None">
+  Base URL for WebSocket connections. If not specified, the default base URL is used with 'wss://' scheme.
+</ParamField>
+
+## Advanced Configuration
+
+### Custom Headers and Query Parameters
+
+```python
+client = OpenAI(
+    default_headers={
+        "X-Custom-Header": "value",
+    },
+    default_query={
+        "custom_param": "value",
+    },
+)
+```
+
+### Organization and Project IDs
+
+```python
+client = OpenAI(
+    organization="org-123",
+    project="proj-456",
+)
+```
+
+<Note>
+Organization and Project IDs are sent as `OpenAI-Organization` and `OpenAI-Project` headers with each request.
+</Note>
+
+### Dynamic API Keys
+
+For scenarios requiring API key rotation, you can provide a callable:
+
+```python
+def get_api_key() -> str:
+    # Fetch API key from secure storage
+    return fetch_from_vault()
+
+client = OpenAI(api_key=get_api_key)
+```
+
+For async clients, the callable can be async:
+
+```python
+async def get_api_key() -> str:
+    # Fetch API key asynchronously
+    return await fetch_from_vault_async()
+
+client = AsyncOpenAI(api_key=get_api_key)
+```
+
+### Custom HTTP Client
+
+Customize the underlying HTTP client for advanced use cases like proxies or custom transports:
+
+```python
+import httpx
+from openai import OpenAI, DefaultHttpxClient
+
+client = OpenAI(
+    http_client=DefaultHttpxClient(
+        proxy="http://proxy.example.com:8080",
+        transport=httpx.HTTPTransport(local_address="0.0.0.0"),
+    ),
+)
+```
+
+<Warning>
+When providing a custom `http_client`, use `DefaultHttpxClient` or `DefaultAsyncHttpxClient` to preserve the SDK's default timeout, connection limits, and redirect behavior.
+</Warning>
+
+## Context Manager Usage
+
+Both clients support context managers for automatic resource cleanup:
+
+```python
+with OpenAI() as client:
+    response = client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": "Hello!"}],
+    )
+# Client is automatically closed
+```
+
+Async client:
+
+```python
+async with AsyncOpenAI() as client:
+    response = await client.chat.completions.create(
+        model="gpt-4",
+        messages=[{"role": "user", "content": "Hello!"}],
+    )
+# Client is automatically closed
+```
+
+## Per-Request Configuration
+
+Override client settings for individual requests using `with_options()`:
+
+```python
+client = OpenAI()
+
+# Override timeout for a single request
+response = client.with_options(timeout=30.0).chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+
+# Override max_retries for a single request
+response = client.with_options(max_retries=5).chat.completions.create(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Hello!"}],
+)
+```
+
+## Client Lifecycle
+
+### Manual Cleanup
+
+If not using a context manager, manually close the client when done:
+
+```python
+client = OpenAI()
+try:
+    # Use client
+    pass
+finally:
+    client.close()
+```
+
+Async client:
+
+```python
+client = AsyncOpenAI()
+try:
+    # Use client
+    pass
+finally:
+    await client.close()
+```
+
+<Note>
+The client automatically closes when garbage collected, but explicit cleanup is recommended for long-running applications.
+</Note>
+
+## Related
+
+- [Async Operations](/concepts/async) - Using AsyncOpenAI for concurrent requests
+- [Timeouts](/concepts/timeouts) - Configuring request timeouts
+- [Retries](/concepts/retries) - Understanding retry behavior
+- [Error Handling](/concepts/error-handling) - Handling API errors

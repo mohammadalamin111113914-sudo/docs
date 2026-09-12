@@ -1,0 +1,209 @@
+---
+title: "Vector Store Files"
+api: "POST https://api.openai.com/v1/vector_stores/{vector_store_id}/files"
+---
+
+Create a vector store file by attaching a [File](/api-reference/files) to a vector store.
+
+## Path Parameters
+
+<ParamField path="vector_store_id" type="string" required>
+  The ID of the vector store.
+</ParamField>
+
+## Request Body
+
+<ParamField body="file_id" type="string" required>
+  A [File](/api-reference/files) ID that the vector store should use. Useful for tools like `file_search` that can access files.
+</ParamField>
+
+<ParamField body="chunking_strategy" type="object">
+  The chunking strategy used to chunk the file(s). If not set, will use the `auto` strategy.
+  
+  <Expandable title="Auto strategy">
+    ```json
+    {
+      "type": "auto"
+    }
+    ```
+  </Expandable>
+  
+  <Expandable title="Static strategy">
+    ```json
+    {
+      "type": "static",
+      "static": {
+        "max_chunk_size_tokens": 800,
+        "chunk_overlap_tokens": 400
+      }
+    }
+    ```
+  </Expandable>
+</ParamField>
+
+<ParamField body="attributes" type="object">
+  Set of 16 key-value pairs that can be attached to an object. This can be useful for storing additional information about the object in a structured format.
+  
+  Keys are strings with a maximum length of 64 characters. Values can be strings (max 512 characters), booleans, or numbers.
+</ParamField>
+
+## Response
+
+Returns a `VectorStoreFile` object.
+
+<ResponseField name="id" type="string">
+  The identifier of the vector store file.
+</ResponseField>
+
+<ResponseField name="object" type="string">
+  The object type, always `vector_store.file`.
+</ResponseField>
+
+<ResponseField name="vector_store_id" type="string">
+  The ID of the vector store that the file is attached to.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  The status of the vector store file. One of:
+  - `in_progress`
+  - `completed`
+  - `cancelled`
+  - `failed`
+</ResponseField>
+
+<ResponseField name="created_at" type="integer">
+  The Unix timestamp (in seconds) for when the vector store file was created.
+</ResponseField>
+
+## List Vector Store Files
+
+`GET https://api.openai.com/v1/vector_stores/{vector_store_id}/files`
+
+Returns a list of vector store files.
+
+### Query Parameters
+
+<ParamField query="limit" type="integer" default="20">
+  A limit on the number of objects to be returned. Limit can range between 1 and 100.
+</ParamField>
+
+<ParamField query="order" type="string" default="desc">
+  Sort order by the `created_at` timestamp. `asc` for ascending order and `desc` for descending order.
+</ParamField>
+
+<ParamField query="after" type="string">
+  A cursor for use in pagination.
+</ParamField>
+
+<ParamField query="before" type="string">
+  A cursor for use in pagination.
+</ParamField>
+
+<ParamField query="filter" type="string">
+  Filter by file status. One of `in_progress`, `completed`, `failed`, `cancelled`.
+</ParamField>
+
+## Retrieve Vector Store File
+
+`GET https://api.openai.com/v1/vector_stores/{vector_store_id}/files/{file_id}`
+
+Retrieves a vector store file.
+
+## Delete Vector Store File
+
+`DELETE https://api.openai.com/v1/vector_stores/{vector_store_id}/files/{file_id}`
+
+Delete a vector store file. This will remove the file from the vector store but the file itself will not be deleted. To delete the file, use the delete file endpoint.
+
+<RequestExample>
+```python Python
+from openai import OpenAI
+client = OpenAI()
+
+# Add file to vector store
+vector_store_file = client.beta.vector_stores.files.create(
+    vector_store_id="vs_abc123",
+    file_id="file-abc123"
+)
+
+print(vector_store_file.id, vector_store_file.status)
+
+# List files in vector store
+files = client.beta.vector_stores.files.list(
+    vector_store_id="vs_abc123"
+)
+
+for file in files:
+    print(file.id, file.status)
+
+# Upload and attach file in one step
+vector_store_file = client.beta.vector_stores.files.upload(
+    vector_store_id="vs_abc123",
+    file=open("mydata.pdf", "rb")
+)
+```
+
+```javascript Node.js
+import OpenAI from "openai";
+import fs from "fs";
+const openai = new OpenAI();
+
+// Add file to vector store
+const vectorStoreFile = await openai.beta.vectorStores.files.create(
+  "vs_abc123",
+  {
+    file_id: "file-abc123"
+  }
+);
+
+console.log(vectorStoreFile.id, vectorStoreFile.status);
+
+// List files in vector store
+const files = await openai.beta.vectorStores.files.list(
+  "vs_abc123"
+);
+
+for (const file of files.data) {
+  console.log(file.id, file.status);
+}
+
+// Upload and attach file in one step
+const uploadedFile = await openai.beta.vectorStores.files.upload(
+  "vs_abc123",
+  fs.createReadStream("mydata.pdf")
+);
+```
+
+```bash cURL
+# Add file to vector store
+curl https://api.openai.com/v1/vector_stores/vs_abc123/files \\
+  -H "Authorization: Bearer $OPENAI_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -H "OpenAI-Beta: assistants=v2" \\
+  -d '{
+    "file_id": "file-abc123"
+  }'
+
+# List files
+curl https://api.openai.com/v1/vector_stores/vs_abc123/files \\
+  -H "Authorization: Bearer $OPENAI_API_KEY" \\
+  -H "OpenAI-Beta: assistants=v2"
+```
+</RequestExample>
+
+<ResponseExample>
+```json
+{
+  "id": "file-abc123",
+  "object": "vector_store.file",
+  "usage_bytes": 1234,
+  "created_at": 1699061776,
+  "vector_store_id": "vs_abc123",
+  "status": "in_progress",
+  "last_error": null,
+  "chunking_strategy": {
+    "type": "auto"
+  }
+}
+```
+</ResponseExample>

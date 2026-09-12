@@ -1,0 +1,199 @@
+---
+title: Azure OpenAI
+description: Use the OpenAI Python SDK with Azure OpenAI Service
+---
+
+The OpenAI Python SDK supports [Azure OpenAI Service](https://learn.microsoft.com/azure/ai-services/openai/overview) through the `AzureOpenAI` class.
+
+<Note>
+  The Azure API shape differs from the core OpenAI API shape, which means that the static types for responses and parameters won't always be correct.
+</Note>
+
+## Basic Usage
+
+### With API Key
+
+```python
+from openai import AzureOpenAI
+
+# API key is read from AZURE_OPENAI_API_KEY environment variable
+client = AzureOpenAI(
+    api_version="2023-07-01-preview",
+    azure_endpoint="https://example-endpoint.openai.azure.com",
+)
+
+completion = client.chat.completions.create(
+    model="deployment-name",  # e.g. gpt-35-instant
+    messages=[
+        {
+            "role": "user",
+            "content": "How do I output all files in a directory using Python?",
+        },
+    ],
+)
+print(completion.to_json())
+```
+
+### With Azure Deployment
+
+You can specify an `azure_deployment` to include it in the base URL:
+
+```python
+from openai import AzureOpenAI
+
+client = AzureOpenAI(
+    api_version="2023-07-01-preview",
+    azure_endpoint="https://example-resource.azure.openai.com/",
+    azure_deployment="deployment-name",  # e.g. gpt-35-instant
+)
+
+completion = client.chat.completions.create(
+    model="<ignored>",  # Model parameter is ignored when using azure_deployment
+    messages=[
+        {
+            "role": "user",
+            "content": "How do I output all files in a directory using Python?",
+        },
+    ],
+)
+print(completion.to_json())
+```
+
+<Warning>
+  The `azure_deployment` parameter is not supported with Assistants APIs.
+</Warning>
+
+## Authentication Methods
+
+Azure OpenAI supports multiple authentication methods:
+
+### API Key
+
+The simplest method uses an API key:
+
+```python
+from openai import AzureOpenAI
+
+client = AzureOpenAI(
+    api_key="your-azure-api-key",  # or use AZURE_OPENAI_API_KEY env var
+    api_version="2023-07-01-preview",
+    azure_endpoint="https://example-endpoint.openai.azure.com",
+)
+```
+
+### Azure Active Directory (Recommended)
+
+For production deployments, use Azure AD authentication:
+
+```python
+from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+from openai import AzureOpenAI
+
+token_provider = get_bearer_token_provider(
+    DefaultAzureCredential(),
+    "https://cognitiveservices.azure.com/.default"
+)
+
+client = AzureOpenAI(
+    api_version="2023-07-01-preview",
+    azure_endpoint="https://example-endpoint.openai.azure.com",
+    azure_ad_token_provider=token_provider,
+)
+```
+
+### Azure AD Token (Static)
+
+You can also pass a static Azure AD token:
+
+```python
+from openai import AzureOpenAI
+
+client = AzureOpenAI(
+    api_version="2023-07-01-preview",
+    azure_endpoint="https://example-endpoint.openai.azure.com",
+    azure_ad_token="your-azure-ad-token",  # or use AZURE_OPENAI_AD_TOKEN env var
+)
+```
+
+## Configuration
+
+### Required Parameters
+
+The following parameters are required:
+
+- **`api_version`**: Azure API version (or `OPENAI_API_VERSION` environment variable)
+- **`azure_endpoint`** OR **`base_url`**: Your Azure endpoint (or `AZURE_OPENAI_ENDPOINT` environment variable)
+
+### Environment Variables
+
+The SDK automatically reads these environment variables:
+
+```bash
+export AZURE_OPENAI_API_KEY="your-azure-key"
+export AZURE_OPENAI_ENDPOINT="https://example-endpoint.openai.azure.com"
+export OPENAI_API_VERSION="2023-07-01-preview"
+export AZURE_OPENAI_AD_TOKEN="your-ad-token"  # Optional
+```
+
+### Available Options
+
+All options from the base `OpenAI` client are available, plus:
+
+| Parameter | Description |
+|-----------|-------------|
+| `azure_endpoint` | Your Azure endpoint URL |
+| `azure_deployment` | Model deployment name to include in base URL |
+| `api_version` | Azure API version |
+| `azure_ad_token` | Static Azure AD token |
+| `azure_ad_token_provider` | Function that returns an Azure AD token |
+
+## Async Client
+
+Use `AsyncAzureOpenAI` for async operations:
+
+```python
+import asyncio
+from openai import AsyncAzureOpenAI
+
+async def main():
+    client = AsyncAzureOpenAI(
+        api_version="2023-07-01-preview",
+        azure_endpoint="https://example-endpoint.openai.azure.com",
+    )
+    
+    completion = await client.chat.completions.create(
+        model="deployment-name",
+        messages=[
+            {
+                "role": "user",
+                "content": "Say this is a test",
+            }
+        ],
+    )
+    print(completion.to_json())
+
+asyncio.run(main())
+```
+
+## API Version
+
+Azure OpenAI uses versioned APIs. See the [Azure REST API versioning docs](https://learn.microsoft.com/azure/ai-services/openai/reference#rest-api-versioning) for available versions.
+
+Currently recommended version: `2023-07-01-preview`
+
+## Deployment Names
+
+In Azure OpenAI, you deploy models with custom deployment names. Use your deployment name in the `model` parameter:
+
+```python
+completion = client.chat.completions.create(
+    model="my-gpt-4-deployment",  # Your Azure deployment name
+    messages=[...],
+)
+```
+
+## Learn More
+
+- [Azure OpenAI Service Documentation](https://learn.microsoft.com/azure/ai-services/openai/overview)
+- [Create an Azure OpenAI Resource](https://learn.microsoft.com/azure/cognitive-services/openai/how-to/create-resource)
+- [Azure Active Directory Authentication](https://www.microsoft.com/security/business/identity-access/microsoft-entra-id)

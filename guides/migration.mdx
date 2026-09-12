@@ -1,0 +1,286 @@
+---
+title: Migration Guide
+description: Migrate from older versions of the OpenAI Python SDK
+---
+
+This guide helps you migrate between major versions of the OpenAI Python SDK.
+
+## Version 2.x to Latest
+
+### Breaking Changes in v2.0.0
+
+#### Function Call Output Types
+
+In v2.0.0, the output field for function tool calls now supports images and files in addition to strings:
+
+**Before (v1.x):**
+```python
+# output was always a string
+output: str = tool_call.output
+```
+
+**After (v2.x):**
+```python
+# output can be string or list of content items
+output: str | list[ResponseInputText | ResponseInputImage | ResponseInputFile] = tool_call.output
+
+# Check the type before using
+if isinstance(output, str):
+    print(output)
+else:
+    for item in output:
+        if item.type == "input_text":
+            print(item.text)
+        elif item.type == "input_image":
+            print(item.image_url)
+```
+
+<Note>
+  This change affects `ResponseFunctionToolCallOutputItem.output` and `ResponseCustomToolCallOutput.output`.
+</Note>
+
+## Version 1.x to 2.x
+
+### Package Compatibility
+
+Version 2.x maintains backward compatibility for most features. Update your package:
+
+```bash
+pip install --upgrade openai
+```
+
+### New Features in v2.x
+
+#### Responses API Enhancements
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+# Enhanced function calls with multi-modal outputs
+response = client.responses.create(
+    model="gpt-5.2",
+    input="Analyze this image and create a chart",
+    tools=[...],
+)
+
+# Tool outputs can now include images and files
+for output_item in response.output:
+    if output_item.type == "function_tool_call_output":
+        # Handle multi-modal outputs
+        if isinstance(output_item.output, str):
+            print(output_item.output)
+        else:
+            for content in output_item.output:
+                # Process text, images, or files
+                print(content.type)
+```
+
+## Version 0.x to 1.x
+
+<Warning>
+  Version 0.x is no longer supported. Please upgrade to v1.x or later.
+</Warning>
+
+### Major Changes
+
+Version 1.0 was a complete rewrite with many breaking changes:
+
+#### Client Initialization
+
+**Before (v0.x):**
+```python
+import openai
+
+openai.api_key = "sk-..."
+response = openai.ChatCompletion.create(...)
+```
+
+**After (v1.x):**
+```python
+from openai import OpenAI
+
+client = OpenAI(api_key="sk-...")
+response = client.chat.completions.create(...)
+```
+
+#### Resource Structure
+
+**Before (v0.x):**
+```python
+openai.ChatCompletion.create(...)
+openai.Completion.create(...)
+openai.Image.create(...)
+```
+
+**After (v1.x):**
+```python
+client.chat.completions.create(...)
+client.completions.create(...)
+client.images.generate(...)
+```
+
+#### Error Handling
+
+**Before (v0.x):**
+```python
+import openai
+
+try:
+    response = openai.ChatCompletion.create(...)
+except openai.error.RateLimitError as e:
+    print(e)
+```
+
+**After (v1.x):**
+```python
+import openai
+from openai import OpenAI
+
+client = OpenAI()
+
+try:
+    response = client.chat.completions.create(...)
+except openai.RateLimitError as e:
+    print(e)
+```
+
+#### Async Support
+
+**Before (v0.x):**
+```python
+import openai
+
+openai.api_key = "sk-..."
+response = await openai.ChatCompletion.acreate(...)
+```
+
+**After (v1.x):**
+```python
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI(api_key="sk-...")
+response = await client.chat.completions.create(...)
+```
+
+#### Streaming
+
+**Before (v0.x):**
+```python
+for chunk in openai.ChatCompletion.create(stream=True, ...):
+    print(chunk)
+```
+
+**After (v1.x):**
+```python
+stream = client.chat.completions.create(stream=True, ...)
+for chunk in stream:
+    print(chunk)
+```
+
+### Migration Checklist
+
+<Steps>
+  <Step title="Update imports">
+    Change from module-level functions to client-based API:
+    
+    ```python
+    # Old
+    import openai
+    
+    # New
+    from openai import OpenAI
+    client = OpenAI()
+    ```
+  </Step>
+  
+  <Step title="Update API calls">
+    Migrate resource paths:
+    
+    ```python
+    # Old: openai.Resource.method(...)
+    # New: client.resource.method(...)
+    ```
+  </Step>
+  
+  <Step title="Update error handling">
+    Error classes moved:
+    
+    ```python
+    # Old: openai.error.RateLimitError
+    # New: openai.RateLimitError
+    ```
+  </Step>
+  
+  <Step title="Update async usage">
+    Use `AsyncOpenAI` client:
+    
+    ```python
+    # Old: await openai.Resource.acreate(...)
+    # New: 
+    from openai import AsyncOpenAI
+    client = AsyncOpenAI()
+    await client.resource.create(...)
+    ```
+  </Step>
+  
+  <Step title="Test thoroughly">
+    Test all API interactions in your application to ensure compatibility.
+  </Step>
+</Steps>
+
+## Python Version Support
+
+| SDK Version | Minimum Python Version |
+|-------------|------------------------|
+| 2.x | Python 3.9+ |
+| 1.x | Python 3.8+ (3.8 deprecated) |
+| 0.x | Python 3.7+ |
+
+<Warning>
+  Python 3.8 support was dropped in SDK version 2.7.1. Please upgrade to Python 3.9 or later.
+</Warning>
+
+## Deprecated Features
+
+### Assistants API
+
+The Assistants API is deprecated in favor of the Responses API:
+
+**Deprecated:**
+```python
+assistant = client.beta.assistants.create(...)
+```
+
+**Use instead:**
+```python
+response = client.responses.create(...)
+```
+
+See the [Responses API documentation](/api-reference/responses) for migration details.
+
+## Getting Help
+
+If you encounter issues during migration:
+
+1. Check the [CHANGELOG](https://github.com/openai/openai-python/blob/main/CHANGELOG.md) for detailed version changes
+2. Review the [API Reference](/api-reference) for current method signatures
+3. Visit the [GitHub issues](https://github.com/openai/openai-python/issues) for community support
+4. See the [examples directory](https://github.com/openai/openai-python/tree/main/examples) for working code samples
+
+## Version Detection
+
+Check your installed version:
+
+```python
+import openai
+
+print(openai.__version__)
+```
+
+Or via command line:
+
+```bash
+pip show openai
+```

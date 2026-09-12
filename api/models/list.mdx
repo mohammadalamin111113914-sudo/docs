@@ -1,0 +1,126 @@
+---
+title: 'List Models'
+description: 'Lists currently available models with basic information'
+---
+
+## Overview
+
+Retrieves a list of all models currently available through the OpenAI API. Each model object provides basic information including the owner and availability.
+
+## Method
+
+```python
+client.models.list()
+```
+
+## Parameters
+
+This endpoint takes no required parameters. Optional parameters include:
+
+<ParamField path="extra_headers" type="dict">
+  Send extra headers with the request
+</ParamField>
+
+<ParamField path="extra_query" type="dict">
+  Add additional query parameters to the request
+</ParamField>
+
+<ParamField path="timeout" type="float">
+  Override the client-level default timeout for this request, in seconds
+</ParamField>
+
+## Response
+
+Returns a paginated list of `Model` objects.
+
+<ResponseField name="data" type="array">
+  Array of model objects
+  
+  <Expandable title="Model object">
+    <ResponseField name="id" type="string">
+      The model identifier that can be referenced in API endpoints
+    </ResponseField>
+    
+    <ResponseField name="created" type="integer">
+      Unix timestamp (in seconds) when the model was created
+    </ResponseField>
+    
+    <ResponseField name="object" type="string">
+      The object type, always "model"
+    </ResponseField>
+    
+    <ResponseField name="owned_by" type="string">
+      The organization that owns the model
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+## Examples
+
+### List All Models
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+# List all available models
+models = client.models.list()
+
+for model in models:
+    print(f"{model.id} (owned by {model.owned_by})")
+```
+
+### Filter Models
+
+```python
+# Get all GPT-4 models
+models = client.models.list()
+gpt4_models = [m for m in models if 'gpt-4' in m.id]
+
+for model in gpt4_models:
+    print(model.id)
+```
+
+### Check Model Availability
+
+```python
+def is_model_available(model_id: str) -> bool:
+    models = client.models.list()
+    return any(m.id == model_id for m in models)
+
+if is_model_available('gpt-4-turbo'):
+    print("Model is available!")
+```
+
+### Pagination
+
+```python
+# The list method returns a SyncPage object that supports iteration
+models_page = client.models.list()
+
+# Iterate through all models (handles pagination automatically)
+for model in models_page:
+    print(model.id)
+```
+
+## Async Usage
+
+```python
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+
+models = client.models.list()
+
+# AsyncPaginator supports async iteration
+async for model in models:
+    print(model.id)
+```
+
+## Notes
+
+- The list includes base models from OpenAI as well as any fine-tuned models you have created
+- Models are returned in no particular order
+- The response is paginated but the SDK handles pagination automatically
+- Use this endpoint to verify model availability before making API calls

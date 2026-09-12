@@ -1,0 +1,354 @@
+---
+title: "Fine-tuning Jobs"
+description: "Create and manage fine-tuning jobs"
+---
+
+## Create Fine-tuning Job
+
+```python
+client.fine_tuning.jobs.create(
+    model: Union[str, Literal["babbage-002", "davinci-002", "gpt-3.5-turbo", "gpt-4o-mini"]],
+    training_file: str,
+    hyperparameters: Optional[Hyperparameters] = None,
+    integrations: Optional[List[Integration]] = None,
+    metadata: Optional[Dict[str, str]] = None,
+    method: Optional[Method] = None,
+    seed: Optional[int] = None,
+    suffix: Optional[str] = None,
+    validation_file: Optional[str] = None
+) -> FineTuningJob
+```
+
+### Parameters
+
+<ParamField path="model" type="Union[str, Literal['babbage-002', 'davinci-002', 'gpt-3.5-turbo', 'gpt-4o-mini']]" required>
+  The name of the model to fine-tune. See [supported models](https://platform.openai.com/docs/guides/fine-tuning#which-models-can-be-fine-tuned).
+</ParamField>
+
+<ParamField path="training_file" type="str" required>
+  The ID of an uploaded file that contains training data.
+
+  Requirements:
+  - Must be a JSONL file
+  - Must be uploaded with `purpose="fine-tune"`
+  - Format depends on model type: [chat format](https://platform.openai.com/docs/api-reference/fine-tuning/chat-input), [completions format](https://platform.openai.com/docs/api-reference/fine-tuning/completions-input), or [preference format](https://platform.openai.com/docs/api-reference/fine-tuning/preference-input)
+</ParamField>
+
+<ParamField path="hyperparameters" type="Hyperparameters">
+  **Deprecated**: Use `method` parameter instead.
+
+  ```python
+  {
+      "batch_size": Union["auto", int],  # Examples per batch
+      "learning_rate_multiplier": Union["auto", float],  # Learning rate scaling
+      "n_epochs": Union["auto", int]  # Training epochs
+  }
+  ```
+</ParamField>
+
+<ParamField path="integrations" type="List[Integration]">
+  List of integrations to enable. Currently supports Weights & Biases:
+
+  ```python
+  [
+      {
+          "type": "wandb",
+          "wandb": {
+              "project": "my-fine-tuning-project",  # Required
+              "name": "my-run-name",  # Optional display name
+              "entity": "my-team",  # Optional team/username
+              "tags": ["tag1", "tag2"]  # Optional tags
+          }
+      }
+  ]
+  ```
+</ParamField>
+
+<ParamField path="metadata" type="Dict[str, str]">
+  Set of up to 16 key-value pairs for storing additional information.
+
+  - Keys: max 64 characters
+  - Values: max 512 characters
+</ParamField>
+
+<ParamField path="method" type="Method">
+  The fine-tuning method configuration. Supports three types:
+
+  **Supervised Learning:**
+  ```python
+  {
+      "type": "supervised",
+      "supervised": {
+          "hyperparameters": {
+              "batch_size": "auto",
+              "learning_rate_multiplier": "auto",
+              "n_epochs": "auto"
+          }
+      }
+  }
+  ```
+
+  **DPO (Direct Preference Optimization):**
+  ```python
+  {
+      "type": "dpo",
+      "dpo": {
+          "hyperparameters": {
+              # DPO-specific hyperparameters
+          }
+      }
+  }
+  ```
+
+  **Reinforcement Learning:**
+  ```python
+  {
+      "type": "reinforcement",
+      "reinforcement": {
+          "hyperparameters": {
+              # RL-specific hyperparameters
+          }
+      }
+  }
+  ```
+</ParamField>
+
+<ParamField path="seed" type="int">
+  Controls reproducibility. Using the same seed and parameters should produce similar results, but may differ in rare cases.
+</ParamField>
+
+<ParamField path="suffix" type="str">
+  A string of up to 64 characters added to your fine-tuned model name.
+
+  Example: `suffix="custom-model-name"` produces `ft:gpt-4o-mini:openai:custom-model-name:7p4lURel`
+</ParamField>
+
+<ParamField path="validation_file" type="str">
+  The ID of an uploaded validation file (JSONL format with `purpose="fine-tune"`).
+
+  Used to generate validation metrics during fine-tuning. Must not overlap with training data.
+</ParamField>
+
+### Response
+
+```python
+class FineTuningJob(BaseModel):
+    id: str  # Job identifier (e.g., "ftjob-abc123")
+    created_at: int  # Unix timestamp
+    error: Optional[Error]  # Error details if status is "failed"
+    fine_tuned_model: Optional[str]  # Model name when complete
+    finished_at: Optional[int]  # Unix timestamp when finished
+    hyperparameters: Hyperparameters  # Hyperparameters used
+    model: str  # Base model being fine-tuned
+    organization_id: str  # Organization owner
+    result_files: List[str]  # Result file IDs
+    seed: int  # Seed used for training
+    status: Literal[
+        "validating_files", "queued", "running",
+        "succeeded", "failed", "cancelled"
+    ]
+    trained_tokens: Optional[int]  # Billable tokens processed
+    training_file: str  # Training file ID
+    validation_file: Optional[str]  # Validation file ID
+    estimated_finish: Optional[int]  # Estimated completion time
+    integrations: Optional[List[Integration]]  # Enabled integrations
+    metadata: Optional[Dict[str, str]]  # Custom metadata
+    method: Optional[Method]  # Fine-tuning method used
+```
+
+## Examples
+
+### Basic Fine-tuning Job
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+# Upload training file first
+with open("training_data.jsonl", "rb") as f:
+    training_file = client.files.create(file=f, purpose="fine-tune")
+
+# Create fine-tuning job
+job = client.fine_tuning.jobs.create(
+    model="gpt-4o-mini",
+    training_file=training_file.id
+)
+
+print(f"Job ID: {job.id}")
+print(f"Status: {job.status}")
+```
+
+### Fine-tuning with Custom Hyperparameters
+
+```python
+job = client.fine_tuning.jobs.create(
+    model="gpt-4o-mini",
+    training_file="file-abc123",
+    method={
+        "type": "supervised",
+        "supervised": {
+            "hyperparameters": {
+                "n_epochs": 3,
+                "batch_size": 4,
+                "learning_rate_multiplier": 0.1
+            }
+        }
+    },
+    suffix="my-custom-model"
+)
+```
+
+### Fine-tuning with Validation Data
+
+```python
+# Upload training and validation files
+with open("train.jsonl", "rb") as f:
+    train_file = client.files.create(file=f, purpose="fine-tune")
+
+with open("validation.jsonl", "rb") as f:
+    val_file = client.files.create(file=f, purpose="fine-tune")
+
+# Create job with validation
+job = client.fine_tuning.jobs.create(
+    model="gpt-4o-mini",
+    training_file=train_file.id,
+    validation_file=val_file.id
+)
+```
+
+### Fine-tuning with Weights & Biases Integration
+
+```python
+job = client.fine_tuning.jobs.create(
+    model="gpt-4o-mini",
+    training_file="file-abc123",
+    integrations=[
+        {
+            "type": "wandb",
+            "wandb": {
+                "project": "gpt-finetuning",
+                "name": "experiment-1",
+                "tags": ["production", "gpt-4o-mini"]
+            }
+        }
+    ]
+)
+```
+
+### Fine-tuning with Metadata
+
+```python
+job = client.fine_tuning.jobs.create(
+    model="gpt-4o-mini",
+    training_file="file-abc123",
+    metadata={
+        "project": "customer-support",
+        "version": "v2.0",
+        "owner": "ml-team"
+    },
+    seed=42  # For reproducibility
+)
+```
+
+## Other Job Operations
+
+### Retrieve Job Status
+
+```python
+job = client.fine_tuning.jobs.retrieve("ftjob-abc123")
+
+print(f"Status: {job.status}")
+if job.fine_tuned_model:
+    print(f"Model: {job.fine_tuned_model}")
+if job.error:
+    print(f"Error: {job.error.message}")
+```
+
+### List All Jobs
+
+```python
+jobs = client.fine_tuning.jobs.list(limit=10)
+
+for job in jobs:
+    print(f"{job.id}: {job.status}")
+```
+
+### List Jobs with Metadata Filter
+
+```python
+jobs = client.fine_tuning.jobs.list(
+    metadata={"project": "customer-support"}
+)
+```
+
+### Cancel a Job
+
+```python
+job = client.fine_tuning.jobs.cancel("ftjob-abc123")
+print(f"Job status: {job.status}")  # Should be "cancelled"
+```
+
+### Pause and Resume Jobs
+
+```python
+# Pause a running job
+job = client.fine_tuning.jobs.pause("ftjob-abc123")
+print(f"Job paused: {job.status}")
+
+# Resume later
+job = client.fine_tuning.jobs.resume("ftjob-abc123")
+print(f"Job resumed: {job.status}")
+```
+
+### List Job Events
+
+```python
+events = client.fine_tuning.jobs.list_events(
+    "ftjob-abc123",
+    limit=20
+)
+
+for event in events:
+    print(f"{event.created_at}: {event.message}")
+```
+
+## Async Usage
+
+```python
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+
+job = await client.fine_tuning.jobs.create(
+    model="gpt-4o-mini",
+    training_file="file-abc123"
+)
+
+print(f"Job ID: {job.id}")
+```
+
+## Training Data Format
+
+### Chat Format (GPT-4, GPT-3.5)
+
+```jsonl
+{"messages": [{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": "What is the capital of France?"}, {"role": "assistant", "content": "The capital of France is Paris."}]}
+{"messages": [{"role": "system", "content": "You are a helpful assistant."}, {"role": "user", "content": "What is 2+2?"}, {"role": "assistant", "content": "2+2 equals 4."}]}
+```
+
+### Completions Format (Babbage, Davinci)
+
+```jsonl
+{"prompt": "Question: What is the capital of France?\nAnswer:", "completion": " Paris"}
+{"prompt": "Question: What is 2+2?\nAnswer:", "completion": " 4"}
+```
+
+## Notes
+
+- Fine-tuning jobs are queued and processed asynchronously
+- Monitor job status with `retrieve()` or set up WandB integration
+- Use `list_events()` to track training progress
+- The `trained_tokens` field determines billing
+- Result files contain detailed metrics and can be downloaded via the Files API
+- See the [Fine-tuning Guide](https://platform.openai.com/docs/guides/model-optimization) for best practices

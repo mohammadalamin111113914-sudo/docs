@@ -1,0 +1,267 @@
+---
+title: 'Translations'
+description: 'Translate audio into English using the Whisper model'
+---
+
+## Create translation
+
+Translates audio into English.
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+audio_file = open("german_audio.mp3", "rb")
+translation = client.audio.translations.create(
+    model="whisper-1",
+    file=audio_file
+)
+
+print(translation.text)
+```
+
+### Parameters
+
+<ParamField path="file" type="file" required>
+  The audio file object (not file name) to translate, in one of these formats: `flac`, `mp3`, `mp4`, `mpeg`, `mpga`, `m4a`, `ogg`, `wav`, or `webm`.
+</ParamField>
+
+<ParamField path="model" type="string" required>
+  ID of the model to use. Only `whisper-1` (which is powered by OpenAI's open source Whisper V2 model) is currently available.
+</ParamField>
+
+<ParamField path="prompt" type="string">
+  An optional text to guide the model's style or continue a previous audio segment. The [prompt](https://platform.openai.com/docs/guides/speech-to-text#prompting) should be in English.
+</ParamField>
+
+<ParamField path="response_format" type="string" default="json">
+  The format of the output, in one of these options: `json`, `text`, `srt`, `verbose_json`, or `vtt`.
+</ParamField>
+
+<ParamField path="temperature" type="float" default="0">
+  The sampling temperature, between 0 and 1. Higher values like 0.8 will make the output more random, while lower values like 0.2 will make it more focused and deterministic. If set to 0, the model will use log probability to automatically increase the temperature until certain thresholds are hit.
+</ParamField>
+
+### Response
+
+<ResponseField name="text" type="string">
+  The translated text in English.
+</ResponseField>
+
+## Examples
+
+### Basic translation
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+# Translate Spanish audio to English
+audio_file = open("spanish_audio.mp3", "rb")
+translation = client.audio.translations.create(
+    model="whisper-1",
+    file=audio_file
+)
+
+print(translation.text)
+```
+
+### Get translation as SRT subtitles
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+audio_file = open("french_video.mp3", "rb")
+translation = client.audio.translations.create(
+    model="whisper-1",
+    file=audio_file,
+    response_format="srt"
+)
+
+# Save English SRT file
+with open("english_subtitles.srt", "w") as f:
+    f.write(translation)
+```
+
+### Get translation as VTT
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+audio_file = open("mandarin_audio.mp3", "rb")
+translation = client.audio.translations.create(
+    model="whisper-1",
+    file=audio_file,
+    response_format="vtt"
+)
+
+# Save as WebVTT file
+with open("subtitles.vtt", "w") as f:
+    f.write(translation)
+```
+
+### Translation with verbose JSON
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+audio_file = open("japanese_audio.mp3", "rb")
+translation = client.audio.translations.create(
+    model="whisper-1",
+    file=audio_file,
+    response_format="verbose_json"
+)
+
+# Access detailed information
+print(f"Language: {translation.language}")
+print(f"Duration: {translation.duration}")
+print(f"Text: {translation.text}")
+```
+
+### Translation with prompt
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+audio_file = open("german_presentation.mp3", "rb")
+translation = client.audio.translations.create(
+    model="whisper-1",
+    file=audio_file,
+    prompt="This is a technical presentation about machine learning algorithms."
+)
+
+print(translation.text)
+```
+
+### Batch translate multiple files
+
+```python
+from openai import OpenAI
+from pathlib import Path
+
+client = OpenAI()
+
+audio_files = Path("audio_files").glob("*.mp3")
+
+for audio_path in audio_files:
+    with audio_path.open("rb") as audio_file:
+        translation = client.audio.translations.create(
+            model="whisper-1",
+            file=audio_file
+        )
+        
+        # Save translation
+        output_path = audio_path.with_suffix(".txt")
+        output_path.write_text(translation.text)
+        print(f"Translated {audio_path.name}")
+```
+
+## Async usage
+
+```python
+import asyncio
+from openai import AsyncOpenAI
+
+async def translate_audio():
+    client = AsyncOpenAI()
+    
+    audio_file = open("italian_audio.mp3", "rb")
+    translation = await client.audio.translations.create(
+        model="whisper-1",
+        file=audio_file
+    )
+    
+    print(translation.text)
+
+asyncio.run(translate_audio())
+```
+
+## Supported audio formats
+
+The translation endpoint supports the following audio formats:
+
+- `flac` - Free Lossless Audio Codec
+- `mp3` - MPEG audio format
+- `mp4` - MPEG-4 Part 14
+- `mpeg` - MPEG audio
+- `mpga` - MPEG audio
+- `m4a` - MPEG-4 audio
+- `ogg` - Ogg Vorbis
+- `wav` - Waveform audio
+- `webm` - WebM audio
+
+## File uploads
+
+Files are uploaded using multipart/form-data. The file object should be opened in binary mode:
+
+```python
+# Correct way to open file
+audio_file = open("path/to/file.mp3", "rb")
+
+# Or using pathlib
+from pathlib import Path
+audio_file = Path("path/to/file.mp3").open("rb")
+```
+
+## Translation vs Transcription
+
+The key difference between the `/audio/translations` and `/audio/transcriptions` endpoints:
+
+- **Translations** - Always outputs English text, regardless of input language
+- **Transcriptions** - Outputs text in the same language as the audio input
+
+### When to use translations
+
+Use the translations endpoint when you need to:
+
+- Convert non-English audio into English text
+- Create English subtitles for foreign language videos
+- Translate podcasts or audio content into English
+- Build multilingual applications that standardize on English output
+
+### When to use transcriptions
+
+Use the transcriptions endpoint when you need to:
+
+- Convert audio to text in the same language
+- Create subtitles in the original language
+- Preserve the original language of the content
+
+## Example: Multi-language processing
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+# First transcribe in original language
+audio_file = open("spanish_audio.mp3", "rb")
+transcription = client.audio.transcriptions.create(
+    model="whisper-1",
+    file=audio_file,
+    language="es"
+)
+print(f"Spanish: {transcription.text}")
+
+# Then translate to English
+audio_file = open("spanish_audio.mp3", "rb")
+translation = client.audio.translations.create(
+    model="whisper-1",
+    file=audio_file
+)
+print(f"English: {translation.text}")
+```
+
+<Info>
+  For more information on audio processing and best practices, see the [Speech to text guide](https://platform.openai.com/docs/guides/speech-to-text).
+</Info>

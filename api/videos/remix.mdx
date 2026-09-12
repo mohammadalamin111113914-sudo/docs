@@ -1,0 +1,229 @@
+---
+title: "Remix Video"
+api: "POST /videos/{video_id}/remix"
+---
+
+Create a remix of a completed video using a refreshed prompt.
+
+## Method Signature
+
+```python
+client.videos.remix(
+    video_id="video_abc123",
+    prompt="Same scene but at night with stars in the sky"
+)
+```
+
+## Parameters
+
+<ParamField path="video_id" type="string" required>
+  The ID of the completed video to remix.
+</ParamField>
+
+<ParamField path="prompt" type="string" required>
+  Updated text prompt that directs the remix generation.
+</ParamField>
+
+## Returns
+
+Returns a new `Video` object representing the remix generation job.
+
+<ResponseField name="id" type="string">
+  Unique identifier for the remix video job.
+</ResponseField>
+
+<ResponseField name="status" type="string">
+  Current lifecycle status of the remix job:
+  - `queued` - waiting to start
+  - `in_progress` - currently generating
+  - `completed` - successfully finished
+  - `failed` - generation failed
+</ResponseField>
+
+<ResponseField name="remixed_from_video_id" type="string">
+  Identifier of the source video that was remixed.
+</ResponseField>
+
+<ResponseField name="created_at" type="integer">
+  Unix timestamp (seconds) for when the remix job was created.
+</ResponseField>
+
+<ResponseField name="completed_at" type="integer">
+  Unix timestamp (seconds) for when the job completed, if finished.
+</ResponseField>
+
+<ResponseField name="expires_at" type="integer">
+  Unix timestamp (seconds) for when the downloadable assets expire, if set.
+</ResponseField>
+
+<ResponseField name="model" type="string">
+  The video generation model that produced the remix.
+</ResponseField>
+
+<ResponseField name="prompt" type="string">
+  The remix prompt that was used to generate the video.
+</ResponseField>
+
+<ResponseField name="seconds" type="integer">
+  Duration of the generated clip in seconds (inherited from source video).
+</ResponseField>
+
+<ResponseField name="size" type="string">
+  The resolution of the generated video (inherited from source video).
+</ResponseField>
+
+<ResponseField name="progress" type="integer">
+  Approximate completion percentage for the generation task (0-100).
+</ResponseField>
+
+<ResponseField name="error" type="object">
+  Error payload that explains why generation failed, if applicable.
+</ResponseField>
+
+## Examples
+
+### Basic video remix
+
+```python
+from openai import OpenAI
+client = OpenAI()
+
+# First, create an original video
+original = client.videos.create_and_poll(
+    prompt="A peaceful lake surrounded by mountains",
+    model="sora-2",
+    seconds=8
+)
+
+if original.status == "completed":
+    # Now remix it with a different prompt
+    remix = client.videos.remix(
+        video_id=original.id,
+        prompt="Same scene but during a dramatic thunderstorm"
+    )
+    
+    print(f"Remix job started: {remix.id}")
+    print(f"Remixed from: {remix.remixed_from_video_id}")
+    print(f"Status: {remix.status}")
+```
+
+### Remix and poll for completion
+
+```python
+from openai import OpenAI
+client = OpenAI()
+
+original_video_id = "video_abc123"
+
+# Create the remix
+remix = client.videos.remix(
+    video_id=original_video_id,
+    prompt="Transform this into a cyberpunk aesthetic with neon lights"
+)
+
+# Wait for completion
+remix = client.videos.poll(remix.id)
+
+if remix.status == "completed":
+    print("Remix completed successfully!")
+    print(f"Original video: {remix.remixed_from_video_id}")
+    print(f"Remix video: {remix.id}")
+else:
+    print(f"Remix failed: {remix.error}")
+```
+
+### Create multiple variations
+
+```python
+from openai import OpenAI
+client = OpenAI()
+
+# Start with an original video
+original = client.videos.create_and_poll(
+    prompt="A busy city intersection during the day",
+    model="sora-2",
+    seconds=8,
+    size="1280x720"
+)
+
+if original.status == "completed":
+    # Create multiple remixes with different prompts
+    remix_prompts = [
+        "Same intersection at sunset with golden lighting",
+        "Same intersection at night with car headlights",
+        "Same intersection in the rain with reflections"
+    ]
+    
+    remixes = []
+    for prompt in remix_prompts:
+        remix = client.videos.remix(
+            video_id=original.id,
+            prompt=prompt
+        )
+        remixes.append(remix)
+        print(f"Started remix: {remix.id}")
+    
+    # Poll all remixes
+    completed_remixes = []
+    for remix in remixes:
+        completed = client.videos.poll(remix.id)
+        if completed.status == "completed":
+            completed_remixes.append(completed)
+            print(f"Remix {completed.id} completed")
+```
+
+### Iterative refinement
+
+```python
+from openai import OpenAI
+client = OpenAI()
+
+# Create original
+video = client.videos.create_and_poll(
+    prompt="A garden with blooming flowers",
+    model="sora-2",
+    seconds=8
+)
+
+# First refinement
+video_v2 = client.videos.remix(
+    video_id=video.id,
+    prompt="Same garden but add butterflies flying around"
+)
+video_v2 = client.videos.poll(video_v2.id)
+
+# Second refinement based on first remix
+if video_v2.status == "completed":
+    video_v3 = client.videos.remix(
+        video_id=video_v2.id,
+        prompt="Same scene but at golden hour with warm lighting"
+    )
+    video_v3 = client.videos.poll(video_v3.id)
+    
+    print(f"Final version: {video_v3.id}")
+    print(f"Evolution: {video.id} -> {video_v2.id} -> {video_v3.id}")
+```
+
+### Remix with download
+
+```python
+from openai import OpenAI
+client = OpenAI()
+
+original_id = "video_abc123"
+
+# Create and wait for remix
+remix = client.videos.remix(
+    video_id=original_id,
+    prompt="Make it look like a vintage 1980s film"
+)
+
+remix = client.videos.poll(remix.id)
+
+if remix.status == "completed":
+    # Download the remixed video
+    content = client.videos.download_content(remix.id)
+    with open(f"remix_{remix.id}.mp4", "wb") as f:
+        f.write(content.read())
+    print(f"Remix downloaded: remix_{remix.id}.mp4")
+```

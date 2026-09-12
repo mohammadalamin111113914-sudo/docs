@@ -1,0 +1,190 @@
+---
+title: 'Speech'
+description: 'Generate audio from text using text-to-speech models'
+---
+
+## Create speech
+
+Generates audio from the input text.
+
+```python
+from openai import OpenAI
+from pathlib import Path
+
+client = OpenAI()
+
+speech_file_path = Path(__file__).parent / "speech.mp3"
+response = client.audio.speech.create(
+    model="tts-1",
+    voice="alloy",
+    input="The quick brown fox jumped over the lazy dog."
+)
+
+response.stream_to_file(speech_file_path)
+```
+
+### Parameters
+
+<ParamField path="input" type="string" required>
+  The text to generate audio for. The maximum length is 4096 characters.
+</ParamField>
+
+<ParamField path="model" type="string" required>
+  One of the available TTS models: `tts-1`, `tts-1-hd`, `gpt-4o-mini-tts`, or `gpt-4o-mini-tts-2025-12-15`.
+  
+  - `tts-1` - Standard quality, optimized for speed
+  - `tts-1-hd` - High definition quality
+  - `gpt-4o-mini-tts` - GPT-4 optimized TTS with voice instructions support
+  - `gpt-4o-mini-tts-2025-12-15` - Latest GPT-4 optimized TTS model
+</ParamField>
+
+<ParamField path="voice" type="string" required>
+  The voice to use when generating the audio. Supported built-in voices are `alloy`, `ash`, `ballad`, `coral`, `echo`, `fable`, `onyx`, `nova`, `sage`, `shimmer`, `verse`, `marin`, and `cedar`.
+  
+  Previews of the voices are available in the [Text to speech guide](https://platform.openai.com/docs/guides/text-to-speech#voice-options).
+</ParamField>
+
+<ParamField path="instructions" type="string">
+  Control the voice of your generated audio with additional instructions. Does not work with `tts-1` or `tts-1-hd`.
+</ParamField>
+
+<ParamField path="response_format" type="string" default="mp3">
+  The format to audio in. Supported formats are `mp3`, `opus`, `aac`, `flac`, `wav`, and `pcm`.
+</ParamField>
+
+<ParamField path="speed" type="float" default="1.0">
+  The speed of the generated audio. Select a value from `0.25` to `4.0`. `1.0` is the default.
+</ParamField>
+
+<ParamField path="stream_format" type="string">
+  The format to stream the audio in. Supported formats are `sse` and `audio`. `sse` is not supported for `tts-1` or `tts-1-hd`.
+</ParamField>
+
+### Response
+
+Returns the audio file content as binary data.
+
+## Examples
+
+### Generate speech with different voices
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+# Try different voices
+voices = ["alloy", "echo", "nova"]
+
+for voice in voices:
+    response = client.audio.speech.create(
+        model="tts-1",
+        voice=voice,
+        input="Hello! I'm an AI voice assistant."
+    )
+    
+    response.stream_to_file(f"speech_{voice}.mp3")
+```
+
+### Adjust speech speed
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+response = client.audio.speech.create(
+    model="tts-1",
+    voice="alloy",
+    input="This is a test of different speech speeds.",
+    speed=1.5  # 1.5x speed
+)
+
+response.stream_to_file("speech_fast.mp3")
+```
+
+### Use GPT-4 TTS with instructions
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+response = client.audio.speech.create(
+    model="gpt-4o-mini-tts",
+    voice="alloy",
+    input="Welcome to our application!",
+    instructions="Speak in an enthusiastic and friendly tone"
+)
+
+response.stream_to_file("speech_custom.mp3")
+```
+
+### Generate in different formats
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+# Generate as WAV
+response = client.audio.speech.create(
+    model="tts-1",
+    voice="alloy",
+    input="This will be saved as a WAV file.",
+    response_format="wav"
+)
+
+response.stream_to_file("speech.wav")
+```
+
+## Async usage
+
+```python
+import asyncio
+from openai import AsyncOpenAI
+
+async def generate_speech():
+    client = AsyncOpenAI()
+    
+    response = await client.audio.speech.create(
+        model="tts-1",
+        voice="alloy",
+        input="Hello from async Python!"
+    )
+    
+    response.stream_to_file("async_speech.mp3")
+
+asyncio.run(generate_speech())
+```
+
+## Supported audio formats
+
+- **mp3** - MPEG audio format (default)
+- **opus** - Opus audio format
+- **aac** - AAC audio format
+- **flac** - FLAC lossless audio format
+- **wav** - Waveform audio format
+- **pcm** - Raw PCM audio at 24kHz (16-bit signed, low-endian)
+
+## Available voices
+
+The following voices are available for speech generation:
+
+- **alloy** - Neutral and balanced
+- **ash** - Clear and articulate
+- **ballad** - Smooth and melodic
+- **coral** - Warm and friendly
+- **echo** - Resonant and clear
+- **fable** - Expressive and storytelling
+- **nova** - Energetic and engaging
+- **onyx** - Deep and authoritative
+- **sage** - Calm and measured
+- **shimmer** - Light and cheerful
+- **verse** - Poetic and rhythmic
+- **marin** - Natural and conversational
+- **cedar** - Warm and grounded
+
+<Info>
+  Preview audio samples for each voice in the [OpenAI Text-to-Speech guide](https://platform.openai.com/docs/guides/text-to-speech#voice-options).
+</Info>

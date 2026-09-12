@@ -1,0 +1,258 @@
+---
+title: Pagination
+description: Paginate through list responses in the OpenAI Python SDK
+---
+
+Many OpenAI API endpoints return paginated lists. The Python SDK provides convenient auto-paginating iterators to work with these responses.
+
+## Auto-Pagination
+
+The SDK automatically fetches additional pages as you iterate:
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+all_jobs = []
+# Automatically fetches more pages as needed
+for job in client.fine_tuning.jobs.list(
+    limit=20,
+):
+    all_jobs.append(job)
+    
+print(f"Total jobs: {len(all_jobs)}")
+```
+
+You don't need to manually handle pagination - the SDK does it for you.
+
+## Async Pagination
+
+Async iteration works the same way:
+
+```python
+import asyncio
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+
+async def main() -> None:
+    all_jobs = []
+    # Iterate through items across all pages
+    async for job in client.fine_tuning.jobs.list(
+        limit=20,
+    ):
+        all_jobs.append(job)
+    
+    print(f"Total jobs: {len(all_jobs)}")
+
+asyncio.run(main())
+```
+
+## Manual Page Control
+
+For more granular control over pagination, use the page helper methods:
+
+### Checking for More Pages
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+first_page = client.fine_tuning.jobs.list(limit=20)
+
+if first_page.has_next_page():
+    print("More pages available")
+    print(f"Next page info: {first_page.next_page_info()}")
+```
+
+### Fetching the Next Page
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+first_page = client.fine_tuning.jobs.list(limit=20)
+
+if first_page.has_next_page():
+    next_page = first_page.get_next_page()
+    print(f"Fetched {len(next_page.data)} items from next page")
+```
+
+### Async Page Fetching
+
+```python
+import asyncio
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+
+async def main() -> None:
+    first_page = await client.fine_tuning.jobs.list(limit=20)
+    
+    if first_page.has_next_page():
+        print(f"Next page details: {first_page.next_page_info()}")
+        next_page = await first_page.get_next_page()
+        print(f"Items in next page: {len(next_page.data)}")
+
+asyncio.run(main())
+```
+
+## Working with Page Data
+
+Access the raw page data directly:
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+first_page = client.fine_tuning.jobs.list(limit=20)
+
+# Access cursor for next page
+print(f"Next page cursor: {first_page.after}")
+
+# Iterate through items in this page only
+for job in first_page.data:
+    print(f"Job ID: {job.id}")
+```
+
+## Page Types
+
+The SDK uses different pagination types depending on the endpoint:
+
+### Cursor Pagination (SyncCursorPage)
+
+Most endpoints use cursor-based pagination:
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+page = client.fine_tuning.jobs.list(limit=20)
+
+# Properties available:
+print(page.data)        # List of items
+print(page.has_more)    # Boolean indicating more pages
+print(page.after)       # Cursor for next page (if has_more is True)
+```
+
+### Conversation Cursor Pagination
+
+Some endpoints use conversation-style pagination with a `last_id`:
+
+```python
+# Properties available:
+print(page.data)        # List of items
+print(page.has_more)    # Boolean indicating more pages
+print(page.last_id)     # ID of last item for pagination
+```
+
+## Pagination Parameters
+
+Common pagination parameters:
+
+| Parameter | Description |
+|-----------|-------------|
+| `limit` | Maximum number of items per page |
+| `after` | Cursor for fetching the next page |
+| `before` | Cursor for fetching the previous page (if supported) |
+
+Example:
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+# Get first page
+first_page = client.fine_tuning.jobs.list(limit=20)
+
+# Get next page using cursor
+if first_page.has_next_page():
+    next_page = client.fine_tuning.jobs.list(
+        limit=20,
+        after=first_page.after,
+    )
+```
+
+## Collecting All Pages
+
+To collect all items from all pages:
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+# Simple list comprehension
+all_jobs = [
+    job
+    for job in client.fine_tuning.jobs.list(limit=20)
+]
+
+print(f"Total jobs collected: {len(all_jobs)}")
+```
+
+Or with async:
+
+```python
+import asyncio
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+
+async def main() -> None:
+    all_jobs = [
+        job
+        async for job in client.fine_tuning.jobs.list(limit=20)
+    ]
+    print(f"Total jobs collected: {len(all_jobs)}")
+
+asyncio.run(main())
+```
+
+## Example: Processing in Batches
+
+Process items in batches (one page at a time):
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+page = client.fine_tuning.jobs.list(limit=20)
+
+while True:
+    # Process current page
+    print(f"Processing {len(page.data)} jobs")
+    for job in page.data:
+        # Process each job
+        print(f"Job {job.id}: {job.status}")
+    
+    # Check for next page
+    if not page.has_next_page():
+        break
+    
+    # Fetch next page
+    page = page.get_next_page()
+
+print("All pages processed")
+```
+
+## Paginated Endpoints
+
+Common endpoints that support pagination:
+
+- `client.fine_tuning.jobs.list()`
+- `client.files.list()`
+- `client.beta.vector_stores.list()`
+- `client.beta.vector_stores.files.list()`
+- `client.beta.threads.messages.list()`
+- `client.beta.threads.runs.list()`
+- `client.beta.threads.runs.steps.list()`
+
+Refer to the [API Reference](/api-reference) for pagination support on specific endpoints.

@@ -1,0 +1,202 @@
+---
+title: "Delete File"
+description: "Delete a file and remove it from all vector stores"
+---
+
+## Method Signature
+
+```python
+client.files.delete(
+    file_id: str
+) -> FileDeleted
+```
+
+## Parameters
+
+<ParamField path="file_id" type="str" required>
+  The ID of the file to delete.
+</ParamField>
+
+## Response
+
+Returns a `FileDeleted` object:
+
+```python
+class FileDeleted(BaseModel):
+    id: str  # The ID of the deleted file
+    deleted: bool  # Whether the file was successfully deleted
+    object: Literal["file"]  # Always "file"
+```
+
+## Examples
+
+### Delete a File
+
+```python
+from openai import OpenAI
+
+client = OpenAI()
+
+response = client.files.delete("file-abc123")
+
+if response.deleted:
+    print(f"File {response.id} deleted successfully")
+else:
+    print("File deletion failed")
+```
+
+### Delete and Verify
+
+```python
+from openai import NotFoundError
+
+file_id = "file-abc123"
+
+# Delete the file
+response = client.files.delete(file_id)
+print(f"Deleted: {response.deleted}")
+
+# Verify deletion
+try:
+    client.files.retrieve(file_id)
+    print("File still exists!")
+except NotFoundError:
+    print("File successfully removed")
+```
+
+### Delete Multiple Files
+
+```python
+file_ids = ["file-abc123", "file-def456", "file-ghi789"]
+
+for file_id in file_ids:
+    try:
+        response = client.files.delete(file_id)
+        if response.deleted:
+            print(f"✓ Deleted {file_id}")
+        else:
+            print(f"✗ Failed to delete {file_id}")
+    except Exception as e:
+        print(f"✗ Error deleting {file_id}: {e}")
+```
+
+### Delete Old Files
+
+```python
+from datetime import datetime, timedelta
+
+# Get all files
+files = client.files.list()
+
+# Delete files older than 30 days
+thirty_days_ago = datetime.now() - timedelta(days=30)
+
+for file in files:
+    file_date = datetime.fromtimestamp(file.created_at)
+    
+    if file_date < thirty_days_ago:
+        response = client.files.delete(file.id)
+        print(f"Deleted old file: {file.filename}")
+```
+
+### Delete Files by Purpose
+
+```python
+# Delete all batch files
+batch_files = client.files.list(purpose="batch")
+
+for file in batch_files:
+    response = client.files.delete(file.id)
+    print(f"Deleted batch file: {file.filename}")
+```
+
+## Async Usage
+
+```python
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+
+response = await client.files.delete("file-abc123")
+print(f"Deleted: {response.deleted}")
+```
+
+### Delete Multiple Files Concurrently
+
+```python
+import asyncio
+from openai import AsyncOpenAI
+
+client = AsyncOpenAI()
+
+async def delete_files(file_ids):
+    tasks = [client.files.delete(fid) for fid in file_ids]
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    for file_id, result in zip(file_ids, results):
+        if isinstance(result, Exception):
+            print(f"Error deleting {file_id}: {result}")
+        elif result.deleted:
+            print(f"Deleted {file_id}")
+
+file_ids = ["file-abc123", "file-def456", "file-ghi789"]
+await delete_files(file_ids)
+```
+
+## Error Handling
+
+```python
+from openai import OpenAI, NotFoundError, APIError
+
+client = OpenAI()
+
+try:
+    response = client.files.delete("file-abc123")
+    print(f"File deleted: {response.deleted}")
+except NotFoundError:
+    print("File not found or already deleted")
+except APIError as e:
+    print(f"API error: {e}")
+except Exception as e:
+    print(f"Unexpected error: {e}")
+```
+
+## Important Notes
+
+- **Vector Store Removal**: Deleting a file removes it from **all** vector stores where it's being used
+- **Irreversible**: File deletion cannot be undone
+- **Fine-tuning Jobs**: Deleting a training file does not affect fine-tuning jobs that have already completed
+- **Active Jobs**: Be cautious when deleting files that may be in use by active jobs
+- **Batch Files**: Files with `purpose=batch` may auto-expire, so manual deletion might not be necessary
+
+## Best Practices
+
+1. **Check before deleting**: Always verify the file details before deletion
+   ```python
+   file = client.files.retrieve("file-abc123")
+   print(f"About to delete: {file.filename} ({file.purpose})")
+   # Confirm before proceeding
+   response = client.files.delete(file.id)
+   ```
+
+2. **Clean up expired files**: Delete expired batch files to free up storage
+   ```python
+   from datetime import datetime
+   
+   files = client.files.list()
+   now = datetime.now().timestamp()
+   
+   for file in files:
+       if file.expires_at and file.expires_at < now:
+           client.files.delete(file.id)
+   ```
+
+3. **Log deletions**: Keep track of deleted files for audit purposes
+   ```python
+   import logging
+   
+   logger = logging.getLogger(__name__)
+   
+   response = client.files.delete(file_id)
+   logger.info(f"Deleted file {file_id}: {response.deleted}")
+   ```

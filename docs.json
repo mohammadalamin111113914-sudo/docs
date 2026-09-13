@@ -32,6 +32,7 @@
             "group": "Get Started",
             "pages": [
               "installation",
+              "installation-2",
               "quickstart"
             ]
           },
